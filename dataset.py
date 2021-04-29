@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import dgl
 from collections import defaultdict
 from torch.utils.data import Dataset
 
@@ -79,6 +80,14 @@ def grid_subsampling(points, feats, dl):
     return subsampled_data[:, :3], subsampled_data[:, 3:]
 
 
+def collate_fn(batch):
+    points, feats, labels = map(list, zip(*batch))
+    print(points)
+    print(feats)
+    print(labels)
+    return None, None, None
+
+
 class ModelNet40Dataset(Dataset):
     def __init__(self,
                  root,
@@ -130,5 +139,40 @@ class ModelNet40Dataset(Dataset):
 
 
 if __name__ == '__main__':
-    dataset = ModelNet40Dataset('data/ModelNet40', 0.02)
-    dataset[4]
+    from torch.utils.data import DataLoader
+
+    # dataset = ModelNet40Dataset('data/ModelNet40', 0.02)
+    
+    # train_data = DataLoader(dataset, batch_size=2, collate_fn=collate_fn)
+
+    # for p, feat, label in train_data:
+    #     print(p.size(), feat.size(), label.size())
+    #     break
+
+    arch = ['simple',
+                    'resnetb',
+                    'resnetb_strided',
+                    'resnetb',
+                    'resnetb',
+                    'resnetb_strided',
+                    'resnetb',
+                    'resnetb',
+                    'resnetb_strided',
+                    'resnetb',
+                    'resnetb',
+                    'resnetb_strided',
+                    'resnetb',
+                    'resnetb',
+                    'global_average']
+
+    layer_blocks = []
+    for block_i, block in enumerate(arch):
+
+        # Get all blocks of the layer
+        if not ('pool' in block or 'strided' in block or 'global' in block or 'upsample' in block):
+            layer_blocks += [block]
+            continue
+        
+        print(block_i, block, layer_blocks)
+
+        layer_blocks = []
