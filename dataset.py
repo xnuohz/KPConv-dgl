@@ -82,7 +82,7 @@ def grid_subsampling(points, feats, dl):
 
 
 def collate_fn(batch):
-    """
+    r"""
     points: list, [b, n, 3]
     feats: list, [b, n, d]
     labels: list, [b,]
@@ -92,7 +92,7 @@ def collate_fn(batch):
     batch_points = torch.FloatTensor(np.concatenate(points))
     batch_feats = torch.FloatTensor(np.concatenate(feats))
     batch_labels = torch.LongTensor(labels).view(-1, 1)
-    batch_len = torch.LongTensor(length)
+    batch_len = np.concatenate([[0], np.cumsum(length)])
     return batch_points, batch_feats, batch_labels, batch_len
 
 
