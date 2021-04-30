@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import torch
 import dgl
 from collections import defaultdict
 from torch.utils.data import Dataset
@@ -81,11 +82,18 @@ def grid_subsampling(points, feats, dl):
 
 
 def collate_fn(batch):
-    points, feats, labels = map(list, zip(*batch))
-    print(points)
-    print(feats)
-    print(labels)
-    return None, None, None
+    """
+    points: list, [b, n, 3]
+    feats: list, [b, n, d]
+    labels: list, [b,]
+    len: list, [b,], each value is the number of points in each point cloud
+    """
+    points, feats, labels, length = map(list, zip(*batch))
+    batch_points = torch.FloatTensor(np.concatenate(points))
+    batch_feats = torch.FloatTensor(np.concatenate(feats))
+    batch_labels = torch.LongTensor(labels).view(-1, 1)
+    batch_len = torch.LongTensor(length)
+    return batch_points, batch_feats, batch_labels, batch_len
 
 
 class ModelNet40Dataset(Dataset):
@@ -133,46 +141,21 @@ class ModelNet40Dataset(Dataset):
             label = self.name_to_label[class_folder]
 
             if len(self.cache) < self.cache_size:
-                self.cache[idx] = (points, feats, label)
+                self.cache[idx] = (points, feats, label, len(points))
 
-            return points, feats, label
+            return points, feats, label, len(points)
 
 
 if __name__ == '__main__':
     from torch.utils.data import DataLoader
 
-    # dataset = ModelNet40Dataset('data/ModelNet40', 0.02)
+    dataset = ModelNet40Dataset('data/ModelNet40', 0.02)
     
-    # train_data = DataLoader(dataset, batch_size=2, collate_fn=collate_fn)
+    train_data = DataLoader(dataset, batch_size=2, collate_fn=collate_fn)
 
-    # for p, feat, label in train_data:
-    #     print(p.size(), feat.size(), label.size())
-    #     break
-
-    arch = ['simple',
-                    'resnetb',
-                    'resnetb_strided',
-                    'resnetb',
-                    'resnetb',
-                    'resnetb_strided',
-                    'resnetb',
-                    'resnetb',
-                    'resnetb_strided',
-                    'resnetb',
-                    'resnetb',
-                    'resnetb_strided',
-                    'resnetb',
-                    'resnetb',
-                    'global_average']
-
-    layer_blocks = []
-    for block_i, block in enumerate(arch):
-
-        # Get all blocks of the layer
-        if not ('pool' in block or 'strided' in block or 'global' in block or 'upsample' in block):
-            layer_blocks += [block]
-            continue
-        
-        print(block_i, block, layer_blocks)
-
-        layer_blocks = []
+    for p, feat, labels, length in train_data:
+        print(p)
+        print(feat)
+        print(labels)
+        print(length)
+        break
