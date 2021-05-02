@@ -1,3 +1,17 @@
+# DGL Implementation of KPConv
+
+This DGL example implements the GNN model proposed in the paper [KPConv: Flexible and Deformable Convolution for Point Clouds](https://arxiv.org/abs/1904.08889). For the original implementation, see [here](https://github.com/HuguesTHOMAS/KPConv-PyTorch).
+
+Contributor: [xnuohz](https://github.com/xnuohz)
+
+### Requirements
+The codebase is implemented in Python 3.7. For version requirement of packages, see below.
+
+```
+dgl 0.6.0
+torch 1.7.0
+```
+
 ### DataLoader
 
 - grid sampling
