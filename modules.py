@@ -101,7 +101,6 @@ class KPConv(nn.Module):
         self.relu = nn.ReLU()
 
     def msg_fn(self, edge):
-        print(edge.data['y'].size(), self.kernel_points.size())
         y = edge.data['y'].unsqueeze(1) - self.kernel_points  # [n_edges, K, p_dim]
         h = self.relu(1 - torch.sqrt(torch.sum(y ** 2, dim=-1)) / self.KP_extent)  # [n_edges, K]
         h = h.unsqueeze(-1).unsqueeze(-1)  # [n_edges, K, 1, 1]
