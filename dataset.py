@@ -144,18 +144,3 @@ class ModelNet40Dataset(Dataset):
                 self.cache[idx] = (points, feats, label, len(points))
 
             return points, feats, label, len(points)
-
-
-if __name__ == '__main__':
-    from torch.utils.data import DataLoader
-
-    dataset = ModelNet40Dataset('data/ModelNet40', 0.02)
-    
-    train_data = DataLoader(dataset, batch_size=2, collate_fn=collate_fn)
-
-    for p, feat, labels, length in train_data:
-        print(p)
-        print(feat)
-        print(labels)
-        print(length)
-        break
