@@ -108,8 +108,10 @@ class KPConv(nn.Module):
         f = edge.src['feat'].unsqueeze(1)  # [n_edges, 1, in_dim]
         return {'m': (f @ m).squeeze(1)}
 
-    def forward(self, g):
-        # Center every neighborhood
-        g.apply_edges(fn.u_sub_v('pos', 'pos', 'y'))
-        g.update_all(self.msg_fn, fn.sum('m', 'h'))
-        return g
+    def forward(self, g, feats):
+        with g.local_scope():
+            g.ndata['feat'] = feats
+            # Center every neighborhood
+            g.apply_edges(fn.u_sub_v('pos', 'pos', 'y'))
+            g.update_all(self.msg_fn, fn.sum('m', 'h'))
+            return g.ndata['h']
