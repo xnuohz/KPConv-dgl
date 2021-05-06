@@ -40,9 +40,10 @@ class FixedRadiusNNGraph(nn.Module):
             # create undirected graph
             src, dst = torch.where(group_idx != num_points)
             g = dgl.graph((src, dst))
+            g = dgl.to_bidirected(g)
+            g = g.to(batch_points.device)
             g.ndata['pos'] = current_cloud
             g.ndata['feat'] = batch_feats[batch_len[i]:batch_len[i + 1]]
-            g = dgl.to_bidirected(g, copy_ndata=True)
             batch_g.append(g)
         
         return dgl.batch(batch_g)
@@ -62,15 +63,15 @@ class BatchGridSubsampling(nn.Module):
         for i in range(len(batch_len) - 1):
             current_cloud = batch_points[batch_len[i]:batch_len[i + 1]]
             current_feat = batch_feats[batch_len[i]:batch_len[i + 1]]
-            ps, feats = grid_subsampling(current_cloud.detach().numpy(),
-                                         current_feat.detach().numpy(),
+            ps, feats = grid_subsampling(current_cloud.cpu().detach().numpy(),
+                                         current_feat.cpu().detach().numpy(),
                                          self.dl)
             pool_points.append(ps)
             pool_feats.append(feats)
             pool_batch.append(len(ps))
         
-        pool_points = torch.FloatTensor(np.concatenate(pool_points))
-        pool_feats = torch.FloatTensor(np.concatenate(pool_feats))
+        pool_points = torch.FloatTensor(np.concatenate(pool_points)).to(batch_points.device)
+        pool_feats = torch.FloatTensor(np.concatenate(pool_feats)).to(batch_feats.device)
         pool_batch = np.concatenate([[0], np.cumsum(pool_batch)])
 
         return pool_points, pool_feats, pool_batch
