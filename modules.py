@@ -63,9 +63,8 @@ class BatchGridSubsampling(nn.Module):
         for i in range(len(batch_len) - 1):
             current_cloud = batch_points[batch_len[i]:batch_len[i + 1]]
             current_feat = batch_feats[batch_len[i]:batch_len[i + 1]]
-            ps, feats = grid_subsampling(current_cloud.cpu().detach().numpy(),
-                                         current_feat.cpu().detach().numpy(),
-                                         self.dl)
+            # Trick: add offset and remove this for loop
+            ps, feats = grid_subsampling(current_cloud, current_feat, self.dl)
             pool_points.append(ps)
             pool_feats.append(feats)
             pool_batch.append(len(ps))
