@@ -15,20 +15,11 @@ def get_bbox(points):
     
     Parameters
     ----------
-    points: ndarray
+    points: torch.Tensor
         [N, 3] matrix of input points
     """
-    min_point, max_point = [1e9, 1e9, 1e9], [-1e9, -1e9, -1e9]
-    
-    for p in points:
-        # left down
-        min_point[0] = min(min_point[0], p[0])
-        min_point[1] = min(min_point[1], p[1])
-        min_point[2] = min(min_point[2], p[2])
-        # right upper
-        max_point[0] = max(max_point[0], p[0])
-        max_point[1] = max(max_point[1], p[1])
-        max_point[2] = max(max_point[2], p[2])
+    min_point = torch.min(points, 0)[0].data
+    max_point = torch.max(points, 0)[0].data
     
     return min_point, max_point
 
@@ -42,9 +33,9 @@ def grid_subsampling(points, feats, dl):
     
     Parameters
     ----------
-    points: ndarray
+    points: torch.Tensor
         [N, 3] matrix of input points
-    feats: ndarray
+    feats: torch.Tensor
         [N, D] matrix of input features
     dl: float
         the size of grid voxels
@@ -56,9 +47,8 @@ def grid_subsampling(points, feats, dl):
     n_points = len(points)
     min_corner, max_corner = get_bbox(points)
     # is this nessesary?
-    min_corner = np.floor(np.divide(min_corner, dl)) * dl
+    min_corner = torch.floor(torch.div(min_corner, dl)) * dl
     
-    # why not split Z?
     sample_nx = int((max_corner[0] - min_corner[0]) / dl) + 1
     sample_ny = int((max_corner[1] - min_corner[1]) / dl) + 1
 
@@ -69,14 +59,15 @@ def grid_subsampling(points, feats, dl):
         idx_y = int((p[1] - min_corner[1]) / dl)
         idx_z = int((p[2] - min_corner[2]) / dl)
         idx = idx_x + sample_nx * idx_y + sample_nx * sample_ny * idx_z
-
-        data[idx].append(np.concatenate([p, f]))
+        data[idx].append(torch.cat([p, f]).view(1, -1))
     
     subsampled_data = []
-    for _, v in data.items():
-        subsampled_data.append(np.mean(v, axis=0))
     
-    subsampled_data = np.array(subsampled_data)
+    for _, v in data.items():
+        v = torch.cat(v)
+        subsampled_data.append(torch.mean(v, dim=0).view(1, -1))
+
+    subsampled_data = torch.cat(subsampled_data)
 
     return subsampled_data[:, :3], subsampled_data[:, 3:]
 
@@ -130,6 +121,7 @@ class ModelNet40Dataset(Dataset):
             txt_file = f'{self.root}/{class_folder}/{cloud_name}.txt'
             # point cloud
             data = np.loadtxt(txt_file, delimiter=',', dtype=np.float32)
+            data = torch.FloatTensor(data)
             points, feats = grid_subsampling(points=data[:, :3],
                                              feats=data[:, 3:],
                                              dl=self.dl)
