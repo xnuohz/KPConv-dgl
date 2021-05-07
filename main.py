@@ -101,7 +101,7 @@ if __name__ == '__main__':
     # model
     parser.add_argument('--epochs', type=int, default=500)
     parser.add_argument('--lr', type=float, default=0.01)
-    parser.add_argument('--batch-size', type=int, default=8)
+    parser.add_argument('--batch-size', type=int, default=4)
 
     args = parser.parse_args()
     print(args)

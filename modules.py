@@ -69,8 +69,8 @@ class BatchGridSubsampling(nn.Module):
             pool_feats.append(feats)
             pool_batch.append(len(ps))
         
-        pool_points = torch.FloatTensor(np.concatenate(pool_points)).to(batch_points.device)
-        pool_feats = torch.FloatTensor(np.concatenate(pool_feats)).to(batch_feats.device)
+        pool_points = torch.cat(pool_points).to(batch_points.device)
+        pool_feats = torch.cat(pool_feats).to(batch_feats.device)
         pool_batch = np.concatenate([[0], np.cumsum(pool_batch)])
 
         return pool_points, pool_feats, pool_batch
@@ -103,7 +103,8 @@ class KPConv(nn.Module):
         self.relu = nn.ReLU()
 
     def msg_fn(self, edge):
-        y = edge.data['y'].unsqueeze(1) - self.kernel_points  # [n_edges, K, p_dim]
+        y = edge.src['pos'] - edge.dst['pos']  # centerize every neighborhood
+        y = y.unsqueeze(1) - self.kernel_points  # [n_edges, K, p_dim]
         h = self.relu(1 - torch.sqrt(torch.sum(y ** 2, dim=-1)) / self.KP_extent)  # [n_edges, K]
         h = h.unsqueeze(-1).unsqueeze(-1)  # [n_edges, K, 1, 1]
         m = torch.sum(h * self.weights, dim=1)  # [n_edges, K, in_dim, out_dim] -> [n_edges, in_dim, out_dim]
@@ -113,7 +114,5 @@ class KPConv(nn.Module):
     def forward(self, g, feats):
         with g.local_scope():
             g.ndata['feat'] = feats
-            # Center every neighborhood
-            g.apply_edges(fn.u_sub_v('pos', 'pos', 'y'))
             g.update_all(self.msg_fn, fn.sum('m', 'h'))
             return g.ndata['h']
