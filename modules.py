@@ -60,12 +60,14 @@ class BatchGridSubsampling(nn.Module):
         self.offset = offset
 
     def forward(self, batch_points, batch_feats, batch_len):
-        # +offset -> gs simultaneously -> -offset
+        r"""
+            assume that batch_points, batch_feats and batch_len are on the same device
+            +offset -> grid subsampling simultaneously -> -offset
+        """
         device = batch_points.device
-        offsets = np.arange(0, len(batch_len) * self.offset, self.offset)
+        offsets = torch.arange(0, len(batch_len) * self.offset, self.offset).to(device)
         # each offset will be repeated by the number of each point cloud
-        offsets = offsets.repeat(batch_len)
-        batch_offsets = torch.FloatTensor(offsets).reshape(-1, 1).to(device)  # [batch, 1]
+        batch_offsets = offsets.repeat_interleave(batch_len).reshape(-1, 1)  # [batch, 1]
         batch_offset_points = batch_points + batch_offsets  # [batch, 3]
         
         pool_points, pool_feats = grid_subsampling(batch_offset_points, batch_feats, self.dl)
@@ -74,14 +76,13 @@ class BatchGridSubsampling(nn.Module):
         # assume that there exists a gap between each point cloud
         gap = torch.abs(tmp_points[1:, :] - tmp_points[:-1, :]) >= self.offset - 1
         pool_cumsum_batch = torch.cat([torch.zeros(1).to(device), torch.where(gap[:, 0] == True)[0] + 1])
-        pool_batch = pool_cumsum_batch[1:] - pool_cumsum_batch[:-1]
+        pool_batch_len = (pool_cumsum_batch[1:] - pool_cumsum_batch[:-1]).long()
         # back to the origin scale
-        pool_offsets = np.arange(0, len(pool_batch) * self.offset, self.offset)
-        pool_offsets = offsets.repeat(pool_batch)
-        batch_pool_offsets = torch.FloatTensor(pool_offsets).reshape(-1, 1).to(device)
-        pool_points = pool_points - batch_pool_offsets
+        pool_offsets = torch.arange(0, len(pool_batch_len) * self.offset, self.offset).to(device)
+        pool_batch_offsets = pool_offsets.repeat_interleave(pool_batch_len).reshape(-1, 1)
+        pool_points = pool_points - pool_batch_offsets
 
-        return pool_points, pool_feats, pool_batch
+        return pool_points, pool_feats, pool_batch_len
 
 
 class KPConv(nn.Module):

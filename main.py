@@ -16,6 +16,7 @@ def train(model, device, data_loader, opt, loss_fn):
         points = points.to(device)
         feats = feats.to(device)
         labels = labels.to(device)
+        length = length.to(device)
 
         logits = model(points, feats, length)
         loss = loss_fn(logits, labels.view(-1))
@@ -37,6 +38,7 @@ def test(model, device, data_loader):
     for points, feats, labels, length in data_loader:
         points = points.to(device)
         feats = feats.to(device)
+        length = length.to(device)
 
         logits = model(points, feats, length)
         y_true.append(labels.detach().cpu())
