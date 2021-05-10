@@ -37,6 +37,7 @@ def test(model, device, data_loader):
     for points, feats, labels, length in data_loader:
         points = points.to(device)
         feats = feats.to(device)
+
         logits = model(points, feats, length)
         y_true.append(labels.detach().cpu())
         y_pred.append(logits.argmax(1).view(-1, 1).detach().cpu())

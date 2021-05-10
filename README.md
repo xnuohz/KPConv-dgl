@@ -37,3 +37,4 @@ torch 1.7.0
   * conv_i is neighbors of stacked_points
   * pool_i is neighbors of center points which is grid subsampled by stacked_points
   * stacked_lengths and pool_b are both batch information
+- currently, batch_len only support on cpu

@@ -29,9 +29,10 @@ class FixedRadiusNNGraph(nn.Module):
 
     def forward(self, batch_points, batch_feats, batch_len):
         batch_g = []
+        batch_len = torch.cat([torch.zeros(1).to(batch_len.device), torch.cumsum(batch_len, dim=0)])
 
         for i in range(len(batch_len) - 1):
-            current_cloud = batch_points[batch_len[i]:batch_len[i + 1]]
+            current_cloud = batch_points[int(batch_len[i]):int(batch_len[i + 1])]
             num_points = len(current_cloud)
             # get neighbors for each point
             dists = square_distance(current_cloud)
@@ -43,7 +44,7 @@ class FixedRadiusNNGraph(nn.Module):
             g = dgl.to_bidirected(g)
             g = g.to(batch_points.device)
             g.ndata['pos'] = current_cloud
-            g.ndata['feat'] = batch_feats[batch_len[i]:batch_len[i + 1]]
+            g.ndata['feat'] = batch_feats[int(batch_len[i]):int(batch_len[i + 1])]
             batch_g.append(g)
         
         return dgl.batch(batch_g)
@@ -53,25 +54,27 @@ class BatchGridSubsampling(nn.Module):
     r"""
     Create barycenters from batched points for the next layer by batch grid subsampling
     """
-    def __init__(self, dl):
+    def __init__(self, dl, offset=5):
         super(BatchGridSubsampling, self).__init__()
         self.dl = dl
+        self.offset = offset
 
     def forward(self, batch_points, batch_feats, batch_len):
-        pool_points, pool_feats, pool_batch = [], [], []
-
-        for i in range(len(batch_len) - 1):
-            current_cloud = batch_points[batch_len[i]:batch_len[i + 1]]
-            current_feat = batch_feats[batch_len[i]:batch_len[i + 1]]
-            # Trick: add offset and remove this for loop
-            ps, feats = grid_subsampling(current_cloud, current_feat, self.dl)
-            pool_points.append(ps)
-            pool_feats.append(feats)
-            pool_batch.append(len(ps))
+        # +offset -> gs simultaneously -> -offset
+        device = batch_points.device
+        offsets = np.arange(0, len(batch_len) * self.offset, self.offset)
+        # each offset will be repeated by the number of each point cloud
+        offsets = offsets.repeat(batch_len)
+        batch_offsets = torch.FloatTensor(offsets).reshape(-1, 1).to(device)  # [batch, 1]
+        batch_offset_points = batch_points + batch_offsets  # [batch, 3]
         
-        pool_points = torch.cat(pool_points).to(batch_points.device)
-        pool_feats = torch.cat(pool_feats).to(batch_feats.device)
-        pool_batch = np.concatenate([[0], np.cumsum(pool_batch)])
+        pool_points, pool_feats = grid_subsampling(batch_offset_points, batch_feats, self.dl)
+        # calculate pool batch length
+        tmp_points = torch.cat([pool_points, torch.zeros(1, pool_points.size()[1]).to(device)], dim=0)
+        # assume that there exists a gap between each point cloud
+        gap = torch.abs(tmp_points[1:, :] - tmp_points[:-1, :]) >= self.offset - 1
+        pool_cumsum_batch = torch.cat([torch.zeros(1).to(device), torch.where(gap[:, 0] == True)[0] + 1])
+        pool_batch = pool_cumsum_batch[1:] - pool_cumsum_batch[:-1]
 
         return pool_points, pool_feats, pool_batch
 
