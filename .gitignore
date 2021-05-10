@@ -136,6 +136,7 @@ Icon
 !**/wrapper/*.jar
 
 *.log
+*.txt
 __pycache__/
 *.lprof
 data/

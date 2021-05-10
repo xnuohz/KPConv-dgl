@@ -75,6 +75,11 @@ class BatchGridSubsampling(nn.Module):
         gap = torch.abs(tmp_points[1:, :] - tmp_points[:-1, :]) >= self.offset - 1
         pool_cumsum_batch = torch.cat([torch.zeros(1).to(device), torch.where(gap[:, 0] == True)[0] + 1])
         pool_batch = pool_cumsum_batch[1:] - pool_cumsum_batch[:-1]
+        # back to the origin scale
+        pool_offsets = np.arange(0, len(pool_batch) * self.offset, self.offset)
+        pool_offsets = offsets.repeat(pool_batch)
+        batch_pool_offsets = torch.FloatTensor(pool_offsets).reshape(-1, 1).to(device)
+        pool_points = pool_points - batch_pool_offsets
 
         return pool_points, pool_feats, pool_batch
 
