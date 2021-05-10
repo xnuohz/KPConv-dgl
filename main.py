@@ -3,6 +3,7 @@ import copy
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from logzero import logger
 from torch.utils.data import DataLoader
 from dataset import ModelNet40Dataset, collate_fn
 from model import KPCNN
@@ -25,7 +26,6 @@ def train(model, device, data_loader, opt, loss_fn):
         opt.zero_grad()
         loss.backward()
         opt.step()
-        break
     
     return sum(train_loss) / len(train_loss)
 
@@ -43,7 +43,6 @@ def test(model, device, data_loader):
         logits = model(points, feats, length)
         y_true.append(labels.detach().cpu())
         y_pred.append(logits.argmax(1).view(-1, 1).detach().cpu())
-        break
     
     y_true = torch.cat(y_true, dim=0)
     y_pred = torch.cat(y_pred, dim=0)
@@ -56,7 +55,7 @@ def main():
     device = f'cuda:{args.gpu}' if args.gpu >= 0 and torch.cuda.is_available() else 'cpu'
 
     # load dataset
-    train_dataset = ModelNet40Dataset('data/ModelNet40', dl=args.dl, split='test')
+    train_dataset = ModelNet40Dataset('data/ModelNet40', dl=args.dl, split='train')
     test_dataset = ModelNet40Dataset('data/ModelNet40', dl=args.dl, split='test')
     
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, collate_fn=collate_fn, shuffle=True)
@@ -65,20 +64,20 @@ def main():
     # load model
     model = KPCNN(args).to(device)
 
-    print(model)
+    logger.info(model)
 
     loss_fn = nn.CrossEntropyLoss()
     opt = optim.Adam(model.parameters(), lr=args.lr)
 
-    print('---------- Training ----------')
+    logger.info('---------- Training ----------')
     for i in range(args.epochs):
         train_loss = train(model, device, train_loader, opt, loss_fn)
         train_acc = test(model, device, train_loader)
-        print(f'Epoch {i} | Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f}')
+        logger.info(f'Epoch {i} | Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f}')
     
-    print('---------- Testing ----------')
+    logger.info('---------- Testing ----------')
     test_acc = test(model, device, test_loader)
-    print(f'Test Acc: {test_acc:.4f}')
+    logger.info(f'Test Acc: {test_acc:.4f}')
 
 
 if __name__ == '__main__':
@@ -107,6 +106,6 @@ if __name__ == '__main__':
     parser.add_argument('--batch-size', type=int, default=4)
 
     args = parser.parse_args()
-    print(args)
+    logger.info(args)
 
     main()
