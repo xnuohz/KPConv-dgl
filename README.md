@@ -12,6 +12,37 @@ dgl 0.6.0
 torch 1.7.0
 ```
 
+### The dataset used in this example
+
+ModelNet40 for classification. Dataset summary:
+
+* Number of point clouds: 9,843(train), 2,468(test)
+* Number of classes: 40
+
+### Usage
+
+**Note: we only support KPConv rigid in this example.**
+
+Train a model which follows the original hyperparameters
+```bash
+python main.py
+```
+
+### Performance
+
+|     Dataset     | ModelNet40  |
+| :-------------: | :---------: |
+| Results(Paper ) | 92.9        |
+| Results(Author) |             |
+|  Results(DGL)   |             |
+
+### Speed
+
+|     Dataset     | ModelNet40  |
+| :-------------: | :---------: |
+| Results(Author) |             |
+|  Results(DGL)   |             |
+
 ### DataLoader
 
 - grid sampling
@@ -37,4 +68,4 @@ torch 1.7.0
   * conv_i is neighbors of stacked_points
   * pool_i is neighbors of center points which is grid subsampled by stacked_points
   * stacked_lengths and pool_b are both batch information
-- currently, batch_len only support on cpu
+- BatchGridSubsampling forward method may have errors

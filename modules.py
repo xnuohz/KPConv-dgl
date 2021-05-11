@@ -74,7 +74,7 @@ class BatchGridSubsampling(nn.Module):
         # calculate pool batch length
         tmp_points = torch.cat([pool_points, torch.zeros(1, pool_points.size()[1]).to(device)], dim=0)
         # assume that there exists a gap between each point cloud
-        gap = torch.abs(tmp_points[1:, :] - tmp_points[:-1, :]) >= self.offset - 1
+        gap = torch.abs(tmp_points[1:, :] - tmp_points[:-1, :]) >= self.offset - 2
         pool_cumsum_batch = torch.cat([torch.zeros(1).to(device), torch.where(gap[:, 0] == True)[0] + 1])
         pool_batch_len = (pool_cumsum_batch[1:] - pool_cumsum_batch[:-1]).long()
         # back to the origin scale
