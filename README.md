@@ -32,8 +32,8 @@ python main.py
 
 |     Dataset     | ModelNet40  |
 | :-------------: | :---------: |
-| Results(Paper ) | 92.9        |
-| Results(Author) |             |
+| Results(Paper)  |    92.9     |
+| Results(Author) |    91.6     |
 |  Results(DGL)   |             |
 
 ### Speed
