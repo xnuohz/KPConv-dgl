@@ -6,6 +6,7 @@ from collections import defaultdict
 from torch.utils.data import Dataset
 
 
+@profile
 def get_bbox(points):
     r"""
     
@@ -24,6 +25,7 @@ def get_bbox(points):
     return min_point, max_point
 
 
+@profile
 def grid_subsampling(points, feats, dl):
     r"""
 
@@ -72,6 +74,7 @@ def grid_subsampling(points, feats, dl):
     return subsampled_data[:, :3], subsampled_data[:, 3:]
 
 
+@profile
 def collate_fn(batch):
     r"""
         points: list, [b, n, 3]
@@ -112,6 +115,7 @@ class ModelNet40Dataset(Dataset):
     def __len__(self):
         return len(self.names)
 
+    @profile
     def __getitem__(self, idx):
         if idx in self.cache:
             return self.cache[idx]

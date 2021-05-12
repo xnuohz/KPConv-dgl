@@ -27,6 +27,7 @@ class FixedRadiusNNGraph(nn.Module):
         super(FixedRadiusNNGraph, self).__init__()
         self.radius = radius
 
+    @profile
     def forward(self, batch_points, batch_feats, batch_len):
         batch_g = []
         batch_len = torch.cat([torch.zeros(1).to(batch_len.device), torch.cumsum(batch_len, dim=0)])
@@ -59,6 +60,7 @@ class BatchGridSubsampling(nn.Module):
         self.dl = dl
         self.offset = offset
 
+    @profile
     def forward(self, batch_points, batch_feats, batch_len):
         r"""
             assume that batch_points, batch_feats and batch_len are on the same device
@@ -111,6 +113,7 @@ class KPConv(nn.Module):
         # h in equation (2)
         self.relu = nn.ReLU()
 
+    @profile
     def msg_fn(self, edge):
         y = edge.src['pos'] - edge.dst['pos']  # centerize every neighborhood
         y = y.unsqueeze(1) - self.kernel_points  # [n_edges, K, p_dim]
@@ -120,6 +123,7 @@ class KPConv(nn.Module):
         f = edge.src['feat'].unsqueeze(1)  # [n_edges, 1, in_dim]
         return {'m': (f @ m).squeeze(1)}
 
+    @profile
     def forward(self, g, feats):
         with g.local_scope():
             g.ndata['feat'] = feats

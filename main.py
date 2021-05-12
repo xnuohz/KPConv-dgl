@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from dataset import ModelNet40Dataset, collate_fn
 from model import KPCNN
 
-
+@profile
 def train(model, device, data_loader, opt, loss_fn):
     model.train()
 
@@ -29,7 +29,7 @@ def train(model, device, data_loader, opt, loss_fn):
     
     return sum(train_loss) / len(train_loss)
 
-
+@profile
 @torch.no_grad()
 def test(model, device, data_loader):
     model.eval()
@@ -50,6 +50,7 @@ def test(model, device, data_loader):
     return (y_true == y_pred).sum().item() / len(y_true)
 
 
+@profile
 def main():
     # check cuda
     device = f'cuda:{args.gpu}' if args.gpu >= 0 and torch.cuda.is_available() else 'cpu'

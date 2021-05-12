@@ -20,6 +20,7 @@ class SimpleBlock(nn.Module):
         self.bn = nn.BatchNorm1d(out_dim, momentum=config.bn_momentum)
         self.leaky_relu = nn.LeakyReLU(0.1)
 
+    @profile
     def forward(self, g, feats):
         with g.local_scope():
             feats = self.kpconv(g, feats)
@@ -67,6 +68,7 @@ class ResnetBlock(nn.Module):
         
         self.leaky_relu = nn.LeakyReLU(0.1)
 
+    @profile
     def forward(self, g, feats):
         with g.local_scope():
             x = self.down_scaling(feats)
@@ -94,6 +96,7 @@ class KPCNN(nn.Module):
             nn.Linear(128, 40)
         )
 
+    @profile
     def forward(self, points, feats, length):
         batch_g = self.fnn1(points, feats, length)
         feats = self.block1(batch_g, batch_g.ndata['feat'])
