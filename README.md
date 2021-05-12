@@ -30,18 +30,18 @@ python main.py
 
 ### Performance
 
-|     Dataset     | ModelNet40  |
-| :-------------: | :---------: |
-| Results(Paper ) | 92.9        |
-| Results(Author) |             |
-|  Results(DGL)   |             |
+|     Dataset    | ModelNet40  |
+| :------------: | :---------: |
+| Result(Paper)  |    92.9     |
+| Result(Author) |    91.6     |
+| Result(DGL)    |             |
 
 ### Speed
 
-|     Dataset     | ModelNet40  |
-| :-------------: | :---------: |
-| Results(Author) |             |
-|  Results(DGL)   |             |
+|     Dataset    | ModelNet40  |
+| :------------: | :---------: |
+| Result(Author) |             |
+| Result(DGL)    |             |
 
 ### DataLoader
 
