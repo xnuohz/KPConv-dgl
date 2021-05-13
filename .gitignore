@@ -137,6 +137,7 @@ Icon
 
 *.log
 *.txt
+*.profile
 __pycache__/
 *.lprof
 data/
