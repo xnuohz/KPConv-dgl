@@ -1,4 +1,4 @@
-# DGL Implementation of KPConv
+# DGL Implementation of KPConv[no preprocessing version]
 
 This DGL example implements the GNN model proposed in the paper [KPConv: Flexible and Deformable Convolution for Point Clouds](https://arxiv.org/abs/1904.08889). For the original implementation, see [here](https://github.com/HuguesTHOMAS/KPConv-PyTorch).
 
@@ -68,4 +68,6 @@ python main.py
   * conv_i is neighbors of stacked_points
   * pool_i is neighbors of center points which is grid subsampled by stacked_points
   * stacked_lengths and pool_b are both batch information
-- BatchGridSubsampling forward method may have errors
+- Two kind of graphs can be cached before feeding into the model
+  * FixedNNRadiusGraph: src and dst are preprocessed into a pickle file
+  * PoolingGraph between layers: src and dst are ditto
