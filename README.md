@@ -1,4 +1,4 @@
-# DGL Implementation of KPConv
+# DGL Implementation of KPConv [no preprocessing version]
 
 This DGL example implements the GNN model proposed in the paper [KPConv: Flexible and Deformable Convolution for Point Clouds](https://arxiv.org/abs/1904.08889). For the original implementation, see [here](https://github.com/HuguesTHOMAS/KPConv-PyTorch).
 
