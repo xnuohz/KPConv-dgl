@@ -18,15 +18,19 @@ class ModelNet40Dataset(Dataset):
         self.label_to_names = {k: v for k, v in enumerate(cat)}
         self.name_to_label = {v: k for k, v in self.label_to_names.items()}
         # load point cloud
-        points, self.feats, lengths, labels = self.load_subsampled_clouds()
+        points, self.feats, lengths, self.labels = self.load_subsampled_clouds()
         lengths = torch.cumsum(torch.cat([torch.LongTensor([0]), lengths]), dim=0)
 
         # for debug
         points = points[:lengths[3], :]
         labels = points[:lengths[3], :]
         lengths = lengths[:4]
-
+        
         self.points, self.neighbors_src, self.neighbors_dst, self.pools_src, self.pools_dst, self.stacked_lengths = self.classification_inputs(points, labels, lengths)
+
+    @property
+    def num_classes(self):
+        return self.labels.max().item() + 1
 
     def __len__(self):
         return len(self.labels)
@@ -214,8 +218,14 @@ class ModelNet40Dataset(Dataset):
             input_pools_src, input_pools_dst, input_stack_lengths
 
 
+def ModelNet40Collate(batch_data):
+    print(len(batch_data), len(batch_data[0]))
+
+
 if __name__ == '__main__':
     import argparse
+
+    from torch.utils.data import DataLoader
 
     parser = argparse.ArgumentParser(description='KPConv')
     parser.add_argument('--first_subsampling_dl', type=float, default=0.02)
@@ -233,4 +243,11 @@ if __name__ == '__main__':
     print(args)
 
     dataset = ModelNet40Dataset(args, 'data/ModelNet40')
-    print(dataset[0])
+    data_loader = DataLoader(dataset,
+                             batch_size=2,                
+                             collate_fn=ModelNet40Collate,
+                             shuffle=False)
+
+    for d in data_loader:
+        # print(d)
+        break
