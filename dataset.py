@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import torch
+import dgl
 from torch.utils.data import Dataset
 from utils import grid_subsampling, batch_neighbors, batch_grid_subsampling
 
@@ -17,13 +18,33 @@ class ModelNet40Dataset(Dataset):
         self.label_to_names = {k: v for k, v in enumerate(cat)}
         self.name_to_label = {v: k for k, v in self.label_to_names.items()}
         # load point cloud
-        self.points, self.feats, self.lengths, self.labels = self.load_subsampled_clouds()
+        points, self.feats, lengths, labels = self.load_subsampled_clouds()
+        lengths = torch.cumsum(torch.cat([torch.LongTensor([0]), lengths]), dim=0)
+
+        # for debug
+        points = points[:lengths[3], :]
+        labels = points[:lengths[3], :]
+        lengths = lengths[:4]
+
+        self.points, self.neighbors_src, self.neighbors_dst, self.pools_src, self.pools_dst, self.stacked_lengths = self.classification_inputs(points, labels, lengths)
 
     def __len__(self):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        return 0
+        feats = self.feats[self.stacked_lengths[0][idx]:self.stacked_lengths[0][idx + 1], :]
+        conv_gs, pool_gs = [], []
+        
+        for i, lengths in enumerate(self.stacked_lengths):
+            cg = dgl.graph((self.neighbors_src[i][idx], self.neighbors_dst[i][idx]))
+            cg.ndata['pos'] = self.points[i][lengths[idx]:lengths[idx + 1], :]
+            conv_gs.append(cg)
+            # This is not right, for the range of src node is larger than the range of dst
+            # They are not in the same domain
+            pg = dgl.graph((self.pools_src[i][idx], self.pools_dst[i][idx]))
+            pool_gs.append(pg)
+
+        return conv_gs, pool_gs, feats
     
     def load_subsampled_clouds(self):
         print(f'Loading {self.split} points subsampled at {self.config.first_subsampling_dl:.3f}')
@@ -65,9 +86,6 @@ class ModelNet40Dataset(Dataset):
             input_points += [points]
             input_feats += [feats]
 
-            if i == 5:
-                break
-
         print('', end='\r')
         print(fmt_str.format('#' * progress_n, 100), end='', flush=True)
         print()
@@ -91,10 +109,15 @@ class ModelNet40Dataset(Dataset):
 
     def classification_inputs(self,
                               stacked_points,
-                              stacked_features,
                               labels,
                               stacked_lengths):
         
+        print(f'Preprocessing {self.split} points subsampled in classification format')
+        filename = f'{self.root}/{self.split}_{self.config.first_subsampling_dl}_classification.pkl'
+        
+        if os.path.exists(filename):
+            return torch.load(open(filename, 'rb'))
+
         # Starting radius of convolutions
         r_normal = self.config.first_subsampling_dl * self.config.conv_radius
 
@@ -103,8 +126,10 @@ class ModelNet40Dataset(Dataset):
 
         # Lists of inputs
         input_points = []
-        input_neighbors = []
-        input_pools = []
+        input_neighbors_src = []
+        input_neighbors_dst = []
+        input_pools_src = []
+        input_pools_dst = []
         input_stack_lengths = []
 
         ######################
@@ -115,7 +140,6 @@ class ModelNet40Dataset(Dataset):
         arch = self.config.architecture
 
         for block_i, block in enumerate(arch):
-
             # Get all blocks of the layer
             if not ('strided' in block or 'global' in block):
                 layer_blocks += [block]
@@ -127,53 +151,48 @@ class ModelNet40Dataset(Dataset):
 
             # Convolution neighbors indices
             # *****************************
-
-            if layer_blocks:
-                # Convolutions are done in this layer, compute the neighbors with the good radius
-                conv_src, conv_dst = batch_neighbors(stacked_points,
-                                                     stacked_points,
-                                                     stack_lengths,
-                                                     stacked_lengths,
-                                                     r_normal)
-            else:
-                # This layer only perform pooling, no neighbors required
-                conv_src = np.zeros((0, 1), dtype=np.int32)
-                conv_dst = np.zeros((0, 1), dtype=np.int32)
-
+            # layer_blocks must not be []
+            # Convolutions are done in this layer, compute the neighbors with the good radius
+            # conv_src: [torch.Tensor], [[g1_src1, g1_src2, ...], [g2_src1, g2_src2, ...], ...]
+            # conv_dst: [torch.Tensor], [[g1_dst1, g1_dst2, ...], [g2_dst1, g2_dst2, ...], ...]
+            conv_src, conv_dst = batch_neighbors(stacked_points,
+                                                 stacked_points,
+                                                 stacked_lengths,
+                                                 stacked_lengths,
+                                                 r_normal)
+            
             # Pooling neighbors indices
             # *************************
 
+            # If come to here, block must be resnetb_strided in our example
             # If end of layer is a pooling operation
-            if 'strided' in block:
 
-                # New subsampling length
-                dl = 2 * r_normal / self.config.conv_radius
+            # New subsampling length
+            dl = 2 * r_normal / self.config.conv_radius
 
-                # Subsampled points
-                pool_p, pool_b = batch_grid_subsampling(stacked_points, stack_lengths, dl)
-
-                # Subsample indices
-                pool_src, pool_dst = batch_neighbors(pool_p,
-                                                     stacked_points,
-                                                     pool_b,
-                                                     stack_lengths,
-                                                     r_normal)
-
-            else:
-                # No pooling in the end of this layer, no pooling indices required
-                pool_i = np.zeros((0, 1), dtype=np.int32)
-                pool_p = np.zeros((0, 1), dtype=np.float32)
-                pool_b = np.zeros((0,), dtype=np.int32)
+            # Subsampled points
+            pool_p, pool_b = batch_grid_subsampling(stacked_points, stacked_lengths, dl)
+            
+            # Subsample indices
+            # pool_src: [torch.Tensor], [[g1_src1, g1_src2, ...], [g2_src1, g2_src2, ...], ...]
+            # pool_dst: [torch.Tensor], [[pool_g1_dst1, pool_g1_dst2, ...], [pool_g2_dst1, pool_g2_dst2, ...], ...]
+            pool_src, pool_dst = batch_neighbors(pool_p,
+                                                 stacked_points,
+                                                 pool_b,
+                                                 stacked_lengths,
+                                                 r_normal)
 
             # Updating input lists
-            input_points += [stacked_points]
-            input_neighbors += [(conv_src, conv_dst)]
-            input_pools += [(pool_src, pool_dst)]
-            input_stack_lengths += [stack_lengths]
+            input_points.append(stacked_points)
+            input_neighbors_src.append(conv_src)
+            input_neighbors_dst.append(conv_dst)
+            input_pools_src.append(pool_src)
+            input_pools_dst.append(pool_dst)
+            input_stack_lengths.append(stacked_lengths)
 
             # New points for next layer
             stacked_points = pool_p
-            stack_lengths = pool_b
+            stacked_lengths = pool_b
 
             # Update radius and reset blocks
             r_normal *= 2
@@ -183,11 +202,16 @@ class ModelNet40Dataset(Dataset):
         # Return inputs
         ###############
 
-        # list of network inputs
-        li = input_points + input_neighbors + input_pools + input_stack_lengths
-        li += [stacked_features, labels]
+        # Save for later use
+        torch.save((input_points,
+                    input_neighbors_src,
+                    input_neighbors_dst,
+                    input_pools_src,
+                    input_pools_dst,
+                    input_stack_lengths), filename)
 
-        return li
+        return input_points, input_neighbors_src, input_neighbors_dst, \
+            input_pools_src, input_pools_dst, input_stack_lengths
 
 
 if __name__ == '__main__':
@@ -195,7 +219,18 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='KPConv')
     parser.add_argument('--first_subsampling_dl', type=float, default=0.02)
+    parser.add_argument('--conv-radius', type=float, default=2.5)
+    parser.add_argument('--architecture', type=list, default=['simple',
+                    'resnetb',
+                    'resnetb_strided',
+                    'resnetb',
+                    'resnetb',
+                    'resnetb_strided',
+                    'resnetb',
+                    'resnetb',
+                    'global_average'])
     args = parser.parse_args()
+    print(args)
 
     dataset = ModelNet40Dataset(args, 'data/ModelNet40')
-    print(len(dataset))
+    print(dataset[0])

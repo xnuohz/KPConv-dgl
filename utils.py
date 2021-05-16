@@ -69,11 +69,11 @@ def batch_neighbors(queries,
         # get neighbors for each point
         dists = square_distance(query_cloud, support_cloud)  # [N, M]
         group_idx = torch.arange(M, dtype=torch.long).view(1, -1).repeat(N, 1)
-        group_idx[dists > self.radius ** 2] = M
+        group_idx[dists > radius ** 2] = M
         # get edges idx
-        src, dst = torch.where(group_idx != num_points)
-        stacked_src.append(src)
-        stacked_dst.append(dst)
+        src, dst = torch.where(group_idx != M)
+        stacked_src.append(src[src != dst])
+        stacked_dst.append(dst[src != dst])
     
     return stacked_src, stacked_dst
 
@@ -149,7 +149,7 @@ def grid_subsampling(points, dl, features=None):
         return subsampled_data
 
 
-def batch_grid_subsampling(stacked_points, stack_lengths, dl, offset=5):
+def batch_grid_subsampling(stacked_points, stacked_lengths, dl, offset=5):
     r"""
     
     Description
@@ -160,7 +160,7 @@ def batch_grid_subsampling(stacked_points, stack_lengths, dl, offset=5):
     -----------
     stacked_points: torch.Tensor
         [N, 3], batched point clouds
-    stack_lengths: torch.Tensor
+    stacked_lengths: torch.Tensor
         [B,] the list of lengths of batched point clouds
     dl: float32
         the size of grid voxels
@@ -172,13 +172,14 @@ def batch_grid_subsampling(stacked_points, stack_lengths, dl, offset=5):
     pool_b: torch.Tensor
         [N1, N2, ...] 
     """
-    # assume that stacked_points, stack_lengths are on CPU before training
+    # cumsum -> not cumsum
+    batch_length = stacked_lengths[1:] - stacked_lengths[:-1]
+    # assume that stacked_points, stacked_lengths are on CPU before training
     # +offset -> grid subsampling simultaneously -> -offset
-    offsets = torch.arange(0, len(stack_lengths) * offset, offset)
+    offsets = torch.arange(0, len(batch_length) * offset, offset)
     # each offset will be repeated by the number of each point cloud
-    stacked_offsets = offsets.repeat_interleave(stack_lengths).reshape(-1, 1)  # [batch, 1]
+    stacked_offsets = offsets.repeat_interleave(batch_length).reshape(-1, 1)  # [batch, 1]
     stacked_offset_points = stacked_points + stacked_offsets  # [batch, 3]
-    
     pool_points = grid_subsampling(stacked_offset_points, dl)
     # calculate pool batch length
     tmp_points = torch.cat([pool_points, torch.zeros(1, pool_points.size()[1])], dim=0)
@@ -190,5 +191,7 @@ def batch_grid_subsampling(stacked_points, stack_lengths, dl, offset=5):
     pool_offsets = torch.arange(0, len(pool_batch_len) * offset, offset)
     pool_batch_offsets = pool_offsets.repeat_interleave(pool_batch_len).reshape(-1, 1)
     pool_points = pool_points - pool_batch_offsets
+    # back to cumsum for the following layer
+    pool_batch_len = torch.cumsum(torch.cat([torch.LongTensor([0]), pool_batch_len]), dim=0)
 
     return pool_points, pool_batch_len
