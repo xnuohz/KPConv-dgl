@@ -2,6 +2,7 @@ import os
 import numpy as np
 import torch
 import dgl
+from collections import defaultdict
 from torch.utils.data import Dataset
 from utils import grid_subsampling, batch_neighbors, batch_grid_subsampling
 
@@ -20,23 +21,24 @@ class ModelNet40Dataset(Dataset):
         # load point cloud
         points, self.feats, lengths, self.labels = self.load_subsampled_clouds()
         lengths = torch.cumsum(torch.cat([torch.LongTensor([0]), lengths]), dim=0)
-
         # for debug
         points = points[:lengths[3], :]
         labels = points[:lengths[3], :]
         lengths = lengths[:4]
         
-        self.points, self.neighbors_src, self.neighbors_dst, self.pools_src, self.pools_dst, self.stacked_lengths = self.classification_inputs(points, labels, lengths)
+        self.points, self.neighbors_src, self.neighbors_dst, self.pools_src, self.pools_dst, self.stacked_lengths = self.classification_inputs(points, self.labels, lengths)
 
     @property
     def num_classes(self):
         return self.labels.max().item() + 1
 
     def __len__(self):
-        return len(self.labels)
+        # return len(self.labels)
+        return 3
 
     def __getitem__(self, idx):
         feats = self.feats[self.stacked_lengths[0][idx]:self.stacked_lengths[0][idx + 1], :]
+        label = self.labels[idx]
         conv_gs, pool_gs = [], []
         
         for i, lengths in enumerate(self.stacked_lengths):
@@ -48,7 +50,7 @@ class ModelNet40Dataset(Dataset):
             pg = dgl.graph((self.pools_src[i][idx], self.pools_dst[i][idx]))
             pool_gs.append(pg)
 
-        return conv_gs, pool_gs, feats
+        return conv_gs, pool_gs, feats, label
     
     def load_subsampled_clouds(self):
         print(f'Loading {self.split} points subsampled at {self.config.first_subsampling_dl:.3f}')
@@ -119,8 +121,8 @@ class ModelNet40Dataset(Dataset):
         print(f'Preprocessing {self.split} points subsampled in classification format')
         filename = f'{self.root}/{self.split}_{self.config.first_subsampling_dl}_classification.pkl'
         
-        if os.path.exists(filename):
-            return torch.load(open(filename, 'rb'))
+        # if os.path.exists(filename):
+        #     return torch.load(open(filename, 'rb'))
 
         # Starting radius of convolutions
         r_normal = self.config.first_subsampling_dl * self.config.conv_radius
@@ -207,19 +209,40 @@ class ModelNet40Dataset(Dataset):
         ###############
 
         # Save for later use
-        torch.save((input_points,
-                    input_neighbors_src,
-                    input_neighbors_dst,
-                    input_pools_src,
-                    input_pools_dst,
-                    input_stack_lengths), filename)
+        # torch.save((input_points,
+        #             input_neighbors_src,
+        #             input_neighbors_dst,
+        #             input_pools_src,
+        #             input_pools_dst,
+        #             input_stack_lengths), filename)
 
         return input_points, input_neighbors_src, input_neighbors_dst, \
             input_pools_src, input_pools_dst, input_stack_lengths
 
 
 def ModelNet40Collate(batch_data):
-    print(len(batch_data), len(batch_data[0]))
+    _, _, feats, labels = map(list, zip(*batch_data))
+    batch_feats = torch.cat(feats)
+    batch_labels = torch.LongTensor(labels).view(-1, 1)
+
+    batch_conv_dict = defaultdict(list)
+    batch_pool_dict = defaultdict(list)
+
+    for conv_gs, pool_gs, _, _ in batch_data:
+        for i, g in enumerate(conv_gs):
+            batch_conv_dict[i].append(g)
+        for i, g in enumerate(pool_gs):
+            batch_pool_dict[i].append(g)
+    
+    batch_conv_gs, batch_pool_gs = [], []
+    
+    for _, v in batch_conv_dict.items():
+        batch_conv_gs.append(dgl.batch(v))
+    
+    for _, v in batch_pool_dict.items():
+        batch_pool_gs.append(dgl.batch(v))
+    
+    return batch_conv_gs, batch_pool_gs, batch_feats, batch_labels
 
 
 if __name__ == '__main__':
@@ -249,5 +272,5 @@ if __name__ == '__main__':
                              shuffle=False)
 
     for d in data_loader:
-        # print(d)
-        break
+        print(d)
+        
