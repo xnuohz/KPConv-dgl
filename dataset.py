@@ -82,8 +82,8 @@ class ModelNet40Dataset(Dataset):
             # Subsample them
             # Assume self.config.first_subsampling_dl > 0
             points, feats = grid_subsampling(data[:, :3],
-                                                self.config.first_subsampling_dl,
-                                                data[:, 3:])
+                                             self.config.first_subsampling_dl,
+                                             data[:, 3:])
 
             print('', end='\r')
             print(fmt_str.format('#' * ((i * progress_n) // N), 100 * i / N), end='', flush=True)
@@ -243,34 +243,4 @@ def ModelNet40Collate(batch_data):
         batch_pool_gs.append(dgl.batch(v))
     
     return batch_conv_gs, batch_pool_gs, batch_feats, batch_labels
-
-
-if __name__ == '__main__':
-    import argparse
-
-    from torch.utils.data import DataLoader
-
-    parser = argparse.ArgumentParser(description='KPConv')
-    parser.add_argument('--first_subsampling_dl', type=float, default=0.02)
-    parser.add_argument('--conv-radius', type=float, default=2.5)
-    parser.add_argument('--architecture', type=list, default=['simple',
-                    'resnetb',
-                    'resnetb_strided',
-                    'resnetb',
-                    'resnetb',
-                    'resnetb_strided',
-                    'resnetb',
-                    'resnetb',
-                    'global_average'])
-    args = parser.parse_args()
-    print(args)
-
-    dataset = ModelNet40Dataset(args, 'data/ModelNet40')
-    data_loader = DataLoader(dataset,
-                             batch_size=2,                
-                             collate_fn=ModelNet40Collate,
-                             shuffle=False)
-
-    for d in data_loader:
-        print(d)
-        
+    
