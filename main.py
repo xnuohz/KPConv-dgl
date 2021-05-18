@@ -1,11 +1,10 @@
 import argparse
-import copy
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from logzero import logger
 from torch.utils.data import DataLoader
-from dataset import ModelNet40Dataset, collate_fn
+from dataset import ModelNet40Dataset, ModelNet40Collate
 from model import KPCNN
 
 
@@ -13,16 +12,14 @@ def train(model, device, data_loader, opt, loss_fn):
     model.train()
 
     train_loss = []
-    for points, feats, labels, length in data_loader:
-        points = points.to(device)
-        feats = feats.to(device)
+    for gs, feats, labels in data_loader:
+        batch_gs = [g.to(device) for g in gs]
+        batch_feats = feats.to(device)
         labels = labels.to(device)
-        length = length.to(device)
-
-        logits = model(points, feats, length)
+        logits = model(batch_gs, batch_feats)
         loss = loss_fn(logits, labels.view(-1))
         train_loss.append(loss.item())
-        
+
         opt.zero_grad()
         loss.backward()
         opt.step()
@@ -35,15 +32,13 @@ def test(model, device, data_loader):
     model.eval()
 
     y_true, y_pred = [], []
-    for points, feats, labels, length in data_loader:
-        points = points.to(device)
-        feats = feats.to(device)
-        length = length.to(device)
-
-        logits = model(points, feats, length)
+    for gs, feats, labels in data_loader:
+        batch_gs = [g.to(device) for g in gs]
+        batch_feats = feats.to(device)
+        logits = model(batch_gs, batch_feats)
         y_true.append(labels.detach().cpu())
         y_pred.append(logits.argmax(1).view(-1, 1).detach().cpu())
-    
+
     y_true = torch.cat(y_true, dim=0)
     y_pred = torch.cat(y_pred, dim=0)
     
@@ -55,17 +50,23 @@ def main():
     device = f'cuda:{args.gpu}' if args.gpu >= 0 and torch.cuda.is_available() else 'cpu'
 
     # load dataset
-    train_dataset = ModelNet40Dataset('data/ModelNet40', dl=args.dl, split='train')
-    test_dataset = ModelNet40Dataset('data/ModelNet40', dl=args.dl, split='test')
+    train_dataset = ModelNet40Dataset(args, 'data/ModelNet40', split='train')
+    test_dataset = ModelNet40Dataset(args, 'data/ModelNet40', split='test')
+
+    train_loader = DataLoader(train_dataset,
+                              batch_size=args.batch_size,                
+                              collate_fn=ModelNet40Collate,
+                              shuffle=False)
     
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, collate_fn=collate_fn, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, collate_fn=collate_fn, shuffle=False)
-
+    test_loader = DataLoader(test_dataset,
+                              batch_size=args.batch_size,                
+                              collate_fn=ModelNet40Collate,
+                              shuffle=False)
+    
     # load model
+    args.num_classes = train_dataset.num_classes
     model = KPCNN(args).to(device)
-
-    logger.info(model)
-
+    
     loss_fn = nn.CrossEntropyLoss()
     opt = optim.Adam(model.parameters(), lr=args.lr)
 
@@ -85,26 +86,26 @@ if __name__ == '__main__':
     KPConv Hyperparameters
     """
     parser = argparse.ArgumentParser(description='KPConv')
-
-    # number of kernel points
+    parser.add_argument('--in-features-dim', type=int, default=3)
+    parser.add_argument('--first-features-dim', type=int, default=64)
+    parser.add_argument('--first-subsampling-dl', type=float, default=0.02)
     parser.add_argument('--num-kernel-points', type=int, default=15)
-    # radius of the area of influence of each kernel point in "number grid cell". (1.0 is the standard value)
     parser.add_argument('--KP-extent', type=float, default=1.2)
-    # radius of convolution in "number grid cell". (2.5 is the standard value)
     parser.add_argument('--conv-radius', type=float, default=2.5)
-    # dimension of input points
     parser.add_argument('--p-dim', type=int, default=3)
-    # batch normalization parameters
     parser.add_argument('--bn-momentum', type=float, default=0.05)
-    # size of the first subsampling grid in meter
-    parser.add_argument('--dl', type=float, default=0.02)
+    parser.add_argument('--architecture', type=list, default=['simple',
+                    'resnetb',
+                    'resnetb_strided',
+                    'resnetb',
+                    'global_average'])
     # cuda
     parser.add_argument('--gpu', type=int, default=0)
-    # model
-    parser.add_argument('--epochs', type=int, default=500)
+    # training
+    parser.add_argument('--epochs', type=int, default=5)
     parser.add_argument('--lr', type=float, default=0.01)
-    parser.add_argument('--batch-size', type=int, default=4)
-
+    parser.add_argument('--batch-size', type=int, default=1)
+    
     args = parser.parse_args()
     logger.info(args)
 
