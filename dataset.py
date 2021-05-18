@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import dgl
 import dgl.function as fn
+from logzero import logger
 from collections import defaultdict
 from torch.utils.data import Dataset
 from utils import grid_subsampling, batch_neighbors, batch_grid_subsampling
@@ -65,7 +66,7 @@ class ModelNet40Dataset(Dataset):
         return gs, feats, label
     
     def load_subsampled_clouds(self):
-        print(f'Loading {self.split} points subsampled at {self.config.first_subsampling_dl:.3f}')
+        logger.info(f'Loading {self.split} points subsampled at {self.config.first_subsampling_dl:.3f}')
         filename = f'{self.root}/{self.split}_{self.config.first_subsampling_dl}_record.pkl'
         
         if os.path.exists(filename):
@@ -130,7 +131,7 @@ class ModelNet40Dataset(Dataset):
                               labels,
                               stacked_lengths):
         
-        print(f'Preprocessing {self.split} points subsampled in classification format')
+        logger.info(f'Preprocessing {self.split} points subsampled in classification format')
         filename = f'{self.root}/{self.split}_{self.config.first_subsampling_dl}_classification.pkl'
         
         # if os.path.exists(filename):
