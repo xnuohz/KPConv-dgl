@@ -1,6 +1,7 @@
 import math
 import torch
 import torch.nn as nn
+import dgl.function as fn
 from dgl.nn.pytorch.glob import AvgPooling
 from utils import load_kernels
 
@@ -55,9 +56,9 @@ class KPConv(nn.Module):
 
     def forward(self, g, feats):
         with g.local_scope():
-            g.ndata['feat'] = feats
+            g.srcdata['feat'] = feats
             g.update_all(self.msg_fn, fn.sum('m', 'h'))
-            return g.ndata['h']
+            return g.dstdata['h']
 
 
 def block_decider(block_name, radius, in_dim, out_dim, config):
@@ -174,18 +175,21 @@ class ResnetBottleneckBlock(nn.Module):
         self.leaky_relu = nn.LeakyReLU(0.1)
 
     def forward(self, g, feats):
-        # conv_g & pool_g ?
+        # conv_g -> homograph, pool_g -> heterograph
         with g.local_scope():
+            if 'strided' in self.block_name:
+                g.srcdata['feat'] = feats
+                g.multi_update_all({
+                    'to': (fn.copy_u('feat', 'm'), fn.mean('m', 'feat'))
+                }, 'sum')
+                shortcut = g.dstdata['feat']
+            else:
+                shortcut = feats
+
             x = self.down_scaling(feats)
             x = self.kpconv(g, x)
             x = self.leaky_relu(self.bn(x))
             x = self.up_scaling(x)
-
-            if 'strided' in self.block_name:
-                # pooling ?
-                pass
-            else:
-                shortcut = feats
 
             return self.leaky_relu(x + self.res(shortcut))
 

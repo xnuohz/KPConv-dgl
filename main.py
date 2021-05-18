@@ -20,7 +20,7 @@ def main():
                               collate_fn=ModelNet40Collate,
                               shuffle=False)
     
-    train_loader = DataLoader(test_dataset,
+    test_loader = DataLoader(test_dataset,
                               batch_size=args.batch_size,                
                               collate_fn=ModelNet40Collate,
                               shuffle=False)
@@ -32,8 +32,13 @@ def main():
     loss_fn = nn.CrossEntropyLoss()
     opt = optim.Adam(model.parameters(), lr=args.lr)
 
-    for d in train_loader:
-        print(d)
+    for gs, feats, labels in train_loader:
+        batch_gs = [g.to(device) for g in gs]
+        batch_feats = feats.to(device)
+        labels = labels.to(device)
+        logits = model(batch_gs, batch_feats)
+        print(logits.size())
+        break
 
 
 if __name__ == '__main__':
@@ -53,9 +58,7 @@ if __name__ == '__main__':
                     'resnetb',
                     'resnetb_strided',
                     'resnetb',
-                    'resnetb',
                     'resnetb_strided',
-                    'resnetb',
                     'resnetb',
                     'global_average'])
     # cuda
@@ -63,7 +66,7 @@ if __name__ == '__main__':
     # training
     parser.add_argument('--epochs', type=int, default=1)
     parser.add_argument('--lr', type=float, default=0.01)
-    parser.add_argument('--batch-size', type=int, default=2)
+    parser.add_argument('--batch-size', type=int, default=1)
     
     args = parser.parse_args()
     print(args)

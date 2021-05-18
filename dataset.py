@@ -2,6 +2,7 @@ import os
 import numpy as np
 import torch
 import dgl
+import dgl.function as fn
 from collections import defaultdict
 from torch.utils.data import Dataset
 from utils import grid_subsampling, batch_neighbors, batch_grid_subsampling
@@ -48,9 +49,17 @@ class ModelNet40Dataset(Dataset):
             conv_g.ndata['pos'] = pos
             gs.append(conv_g)
             if i != len(self.stacked_lengths) - 1:
-                # pool points are offseted by N
-                N = lengths[idx + 1] - lengths[idx]
-                pool_g = dgl.graph((self.pools_src[i][idx], self.pools_dst[i][idx] + N))
+                # only 1 relationship in this heter graph
+                pool_g = dgl.heterograph({
+                    ('pc_1', 'to', 'pc_2'): (self.pools_src[i][idx], self.pools_dst[i][idx])
+                })
+                pool_g.srcdata['pos'] = pos
+
+                # update dst node pos
+                pool_g.multi_update_all({
+                    'to': (fn.copy_u('pos', 'm'), fn.mean('m', 'pos'))
+                }, 'sum')
+
                 gs.append(pool_g)
 
         return gs, feats, label
