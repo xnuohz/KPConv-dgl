@@ -26,7 +26,8 @@ class ModelNet40Dataset(Dataset):
         labels = points[:lengths[3], :]
         lengths = lengths[:4]
         
-        self.points, self.neighbors_src, self.neighbors_dst, self.pools_src, self.pools_dst, self.stacked_lengths = self.classification_inputs(points, self.labels, lengths)
+        self.points, self.neighbors_src, self.neighbors_dst, self.pools_src, self.pools_dst, \
+            self.stacked_lengths = self.classification_inputs(points, self.labels, lengths)
 
     @property
     def num_classes(self):
@@ -37,20 +38,23 @@ class ModelNet40Dataset(Dataset):
         return 3
 
     def __getitem__(self, idx):
+        print(self.stacked_lengths)
         feats = self.feats[self.stacked_lengths[0][idx]:self.stacked_lengths[0][idx + 1], :]
         label = self.labels[idx]
-        conv_gs, pool_gs = [], []
+        gs = []
         
         for i, lengths in enumerate(self.stacked_lengths):
-            cg = dgl.graph((self.neighbors_src[i][idx], self.neighbors_dst[i][idx]))
-            cg.ndata['pos'] = self.points[i][lengths[idx]:lengths[idx + 1], :]
-            conv_gs.append(cg)
-            # This is not right, for the range of src node is larger than the range of dst
-            # They are not in the same domain
-            pg = dgl.graph((self.pools_src[i][idx], self.pools_dst[i][idx]))
-            pool_gs.append(pg)
-
-        return conv_gs, pool_gs, feats, label
+            pos = self.points[i][lengths[idx]:lengths[idx + 1], :]
+            conv_g = dgl.graph((self.neighbors_src[i][idx], self.neighbors_dst[i][idx]))
+            conv_g.ndata['pos'] = pos
+            gs.append(conv_g)
+            if i != len(self.stacked_lengths) - 1:
+                # pool points are offseted by N
+                N = lengths[idx + 1] - lengths[idx]
+                pool_g = dgl.graph((self.pools_src[i][idx], self.pools_dst[i][idx] + N))
+                gs.append(pool_g)
+        
+        return gs, feats, label
     
     def load_subsampled_clouds(self):
         print(f'Loading {self.split} points subsampled at {self.config.first_subsampling_dl:.3f}')
@@ -143,6 +147,7 @@ class ModelNet40Dataset(Dataset):
         ######################
 
         # simple -> resnetb -> resnetb_strided -> resnetb -> resnetb_strided -> resnetb -> global_average
+        # conv_g            -> pool_g          -> conv_g  -> pool_g          -> conv_g
         arch = self.config.architecture
 
         for block_i, block in enumerate(arch):
@@ -150,10 +155,6 @@ class ModelNet40Dataset(Dataset):
             if not ('strided' in block or 'global' in block):
                 layer_blocks += [block]
                 continue
-
-            # Stop when meeting a global pooling
-            if 'global' in block:
-                break
 
             # Convolution neighbors indices
             # *****************************
@@ -166,7 +167,16 @@ class ModelNet40Dataset(Dataset):
                                                  stacked_lengths,
                                                  stacked_lengths,
                                                  r_normal)
-            
+            # Updating input lists
+            input_points.append(stacked_points)
+            input_stack_lengths.append(stacked_lengths)
+            input_neighbors_src.append(conv_src)
+            input_neighbors_dst.append(conv_dst)
+
+            # Stop when meeting a global pooling
+            if 'global' in block:
+                break
+
             # Pooling neighbors indices
             # *************************
 
@@ -189,12 +199,8 @@ class ModelNet40Dataset(Dataset):
                                                  r_normal)
 
             # Updating input lists
-            input_points.append(stacked_points)
-            input_neighbors_src.append(conv_src)
-            input_neighbors_dst.append(conv_dst)
             input_pools_src.append(pool_src)
             input_pools_dst.append(pool_dst)
-            input_stack_lengths.append(stacked_lengths)
 
             # New points for next layer
             stacked_points = pool_p
