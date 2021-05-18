@@ -38,7 +38,6 @@ class ModelNet40Dataset(Dataset):
         return 3
 
     def __getitem__(self, idx):
-        print(self.stacked_lengths)
         feats = self.feats[self.stacked_lengths[0][idx]:self.stacked_lengths[0][idx + 1], :]
         label = self.labels[idx]
         gs = []
@@ -53,7 +52,7 @@ class ModelNet40Dataset(Dataset):
                 N = lengths[idx + 1] - lengths[idx]
                 pool_g = dgl.graph((self.pools_src[i][idx], self.pools_dst[i][idx] + N))
                 gs.append(pool_g)
-        
+
         return gs, feats, label
     
     def load_subsampled_clouds(self):
@@ -227,26 +226,20 @@ class ModelNet40Dataset(Dataset):
 
 
 def ModelNet40Collate(batch_data):
-    _, _, feats, labels = map(list, zip(*batch_data))
+    _, feats, labels = map(list, zip(*batch_data))
     batch_feats = torch.cat(feats)
     batch_labels = torch.LongTensor(labels).view(-1, 1)
 
-    batch_conv_dict = defaultdict(list)
-    batch_pool_dict = defaultdict(list)
+    batch_g_dict = defaultdict(list)
 
-    for conv_gs, pool_gs, _, _ in batch_data:
-        for i, g in enumerate(conv_gs):
-            batch_conv_dict[i].append(g)
-        for i, g in enumerate(pool_gs):
-            batch_pool_dict[i].append(g)
+    for gs, _, _ in batch_data:
+        for i, g in enumerate(gs):
+            batch_g_dict[i].append(g)
     
-    batch_conv_gs, batch_pool_gs = [], []
+    batch_gs = []
     
-    for _, v in batch_conv_dict.items():
-        batch_conv_gs.append(dgl.batch(v))
+    for _, v in batch_g_dict.items():
+        batch_gs.append(dgl.batch(v))
     
-    for _, v in batch_pool_dict.items():
-        batch_pool_gs.append(dgl.batch(v))
-    
-    return batch_conv_gs, batch_pool_gs, batch_feats, batch_labels
+    return batch_gs, batch_feats, batch_labels
     
