@@ -2,9 +2,47 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from logzero import logger
 from torch.utils.data import DataLoader
 from dataset import ModelNet40Dataset, ModelNet40Collate
 from model import KPCNN
+
+
+def train(model, device, data_loader, opt, loss_fn):
+    model.train()
+
+    train_loss = []
+    for gs, feats, labels in data_loader:
+        batch_gs = [g.to(device) for g in gs]
+        batch_feats = feats.to(device)
+        labels = labels.to(device)
+        logits = model(batch_gs, batch_feats)
+        loss = loss_fn(logits, labels.view(-1))
+        train_loss.append(loss.item())
+
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+    
+    return sum(train_loss) / len(train_loss)
+
+
+@torch.no_grad()
+def test(model, device, data_loader):
+    model.eval()
+
+    y_true, y_pred = [], []
+    for gs, feats, labels in data_loader:
+        batch_gs = [g.to(device) for g in gs]
+        batch_feats = feats.to(device)
+        logits = model(batch_gs, batch_feats)
+        y_true.append(labels.detach().cpu())
+        y_pred.append(logits.argmax(1).view(-1, 1).detach().cpu())
+
+    y_true = torch.cat(y_true, dim=0)
+    y_pred = torch.cat(y_pred, dim=0)
+    
+    return (y_true == y_pred).sum().item() / len(y_true)
 
 
 def main():
@@ -32,13 +70,15 @@ def main():
     loss_fn = nn.CrossEntropyLoss()
     opt = optim.Adam(model.parameters(), lr=args.lr)
 
-    for gs, feats, labels in train_loader:
-        batch_gs = [g.to(device) for g in gs]
-        batch_feats = feats.to(device)
-        labels = labels.to(device)
-        logits = model(batch_gs, batch_feats)
-        print(logits.size())
-        break
+    logger.info('---------- Training ----------')
+    for i in range(args.epochs):
+        train_loss = train(model, device, train_loader, opt, loss_fn)
+        train_acc = test(model, device, train_loader)
+        logger.info(f'Epoch {i} | Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f}')
+    
+    logger.info('---------- Testing ----------')
+    test_acc = test(model, device, test_loader)
+    logger.info(f'Test Acc: {test_acc:.4f}')
 
 
 if __name__ == '__main__':
@@ -58,17 +98,15 @@ if __name__ == '__main__':
                     'resnetb',
                     'resnetb_strided',
                     'resnetb',
-                    'resnetb_strided',
-                    'resnetb',
                     'global_average'])
     # cuda
     parser.add_argument('--gpu', type=int, default=0)
     # training
-    parser.add_argument('--epochs', type=int, default=1)
+    parser.add_argument('--epochs', type=int, default=20)
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--batch-size', type=int, default=1)
     
     args = parser.parse_args()
-    print(args)
+    logger.info(args)
 
     main()
