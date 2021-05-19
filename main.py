@@ -56,7 +56,7 @@ def main():
     train_loader = DataLoader(train_dataset,
                               batch_size=args.batch_size,                
                               collate_fn=ModelNet40Collate,
-                              shuffle=False)
+                              shuffle=True)
     
     test_loader = DataLoader(test_dataset,
                               batch_size=args.batch_size,                
