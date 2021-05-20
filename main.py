@@ -8,7 +8,7 @@ from dataset import ModelNet40Dataset, ModelNet40Collate
 from model import KPCNN
 
 
-def train(model, device, data_loader, opt, loss_fn):
+def train(model, device, data_loader, opt, loss_fn, i):
     model.train()
 
     train_loss = []
@@ -18,6 +18,7 @@ def train(model, device, data_loader, opt, loss_fn):
         labels = labels.to(device)
         logits = model(batch_gs, batch_feats)
         loss = loss_fn(logits, labels.view(-1))
+        logger.info(f'Epoch {i} | Step Loss: {loss.item():.4f}')
         train_loss.append(loss.item())
 
         opt.zero_grad()
@@ -52,9 +53,9 @@ def main():
     # load dataset
     train_dataset = ModelNet40Dataset(args, 'data/ModelNet40', split='train')
     test_dataset = ModelNet40Dataset(args, 'data/ModelNet40', split='test')
-
+    
     train_loader = DataLoader(train_dataset,
-                              batch_size=args.batch_size,                
+                              batch_size=args.batch_size,
                               collate_fn=ModelNet40Collate,
                               shuffle=True)
     
@@ -72,7 +73,7 @@ def main():
 
     logger.info('---------- Training ----------')
     for i in range(args.epochs):
-        train_loss = train(model, device, train_loader, opt, loss_fn)
+        train_loss = train(model, device, train_loader, opt, loss_fn, i)
         train_acc = test(model, device, train_loader)
         logger.info(f'Epoch {i} | Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f}')
     
@@ -86,6 +87,7 @@ if __name__ == '__main__':
     KPConv Hyperparameters
     """
     parser = argparse.ArgumentParser(description='KPConv')
+    parser.add_argument('--data-type', type=str, default='small', choices=['small', 'large'])
     parser.add_argument('--in-features-dim', type=int, default=3)
     parser.add_argument('--first-features-dim', type=int, default=64)
     parser.add_argument('--first-subsampling-dl', type=float, default=0.02)
@@ -96,7 +98,9 @@ if __name__ == '__main__':
     parser.add_argument('--bn-momentum', type=float, default=0.05)
     parser.add_argument('--architecture', type=list, default=['simple',
                     'resnetb',
+                    'resnetb',
                     'resnetb_strided',
+                    'resnetb',
                     'resnetb',
                     'global_average'])
     # cuda

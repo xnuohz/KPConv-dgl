@@ -16,7 +16,8 @@ class ModelNet40Dataset(Dataset):
         self.config = args
         self.root = root
         self.split = split
-        catfile = os.path.join(root, 'modelnet10_shape_names.txt')
+        self.type = 10 if args.data_type == 'small' else 40
+        catfile = os.path.join(root, f'modelnet{self.type}_shape_names.txt')
         cat = [l.rstrip() for l in open(catfile)]
         self.label_to_names = {k: v for k, v in enumerate(cat)}
         self.name_to_label = {v: k for k, v in self.label_to_names.items()}
@@ -67,12 +68,12 @@ class ModelNet40Dataset(Dataset):
     
     def load_subsampled_clouds(self):
         logger.info(f'Loading {self.split} points subsampled at {self.config.first_subsampling_dl:.3f}')
-        filename = f'{self.root}/{self.split}_{self.config.first_subsampling_dl}_record.pkl'
+        filename = f'{self.root}/{self.split}_{self.config.first_subsampling_dl}_record_{self.type}.pkl'
         
         if os.path.exists(filename):
             return torch.load(open(filename, 'rb'))
         
-        names = np.loadtxt(f'{self.root}/modelnet10_{self.split}.txt', dtype=str)
+        names = np.loadtxt(f'{self.root}/modelnet{self.type}_{self.split}.txt', dtype=str)
         
         # Initialize containers
         input_points = []
@@ -132,7 +133,7 @@ class ModelNet40Dataset(Dataset):
                               stacked_lengths):
         
         logger.info(f'Preprocessing {self.split} points subsampled in classification format')
-        filename = f'{self.root}/{self.split}_{self.config.first_subsampling_dl}_classification.pkl'
+        filename = f'{self.root}/{self.split}_{self.config.first_subsampling_dl}_classification_{self.type}.pkl'
         
         if os.path.exists(filename):
             return torch.load(open(filename, 'rb'))

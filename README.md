@@ -43,3 +43,7 @@ python main.py
 | :------------: | :---------: |
 | Result(Author) |             |
 | Result(DGL)    |             |
+
+### Issue
+
+- OOM: smaller dl, neighbor sampling
