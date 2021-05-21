@@ -67,7 +67,7 @@ def main():
     # load model
     args.num_classes = train_dataset.num_classes
     model = KPCNN(args).to(device)
-    
+
     loss_fn = nn.CrossEntropyLoss()
     opt = optim.Adam(model.parameters(), lr=args.lr)
 
@@ -97,7 +97,6 @@ if __name__ == '__main__':
     parser.add_argument('--p-dim', type=int, default=3)
     parser.add_argument('--bn-momentum', type=float, default=0.05)
     parser.add_argument('--architecture', type=list, default=['simple',
-                    'resnetb',
                     'resnetb',
                     'resnetb_strided',
                     'resnetb',
