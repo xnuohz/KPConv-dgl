@@ -51,13 +51,27 @@ class KPConv(nn.Module):
         h = self.relu(1 - torch.sqrt(torch.sum(y ** 2, dim=-1)) / self.KP_extent)  # [n_edges, K]
         h = h.unsqueeze(-1).unsqueeze(-1)  # [n_edges, K, 1, 1]
         m = torch.sum(h * self.weights, dim=1)  # [n_edges, K, in_dim, out_dim] -> [n_edges, in_dim, out_dim]
-        f = edge.src['feat'].unsqueeze(1)  # [n_edges, 1, in_dim]
-        return {'m': (f @ m).squeeze(1)}
+        return {'m': m}
+    
+    def reduce_fn(self, node):
+        # import pdb;pdb.set_trace()
+        f = node.data['feat'].unsqueeze(1).unsqueeze(1)  # [n_nodes, 1, 1, in_dim]
+        try:
+            return {'h': (f @ node.mailbox['m']).mean(1).squeeze(1)}
+        except RuntimeError:
+            import pdb;pdb.set_trace()
 
-    def forward(self, g, feats):
+    def forward(self, g, feats, pool=False):
         with g.local_scope():
-            g.srcdata['feat'] = feats
-            g.update_all(self.msg_fn, fn.sum('m', 'h'))
+            if pool:
+                g.srcdata['feat'] = feats
+                # keep the dim of dst the same as src
+                g.multi_update_all({
+                    'to': (fn.copy_u('feat', 'm'), fn.mean('m', 'feat'))
+                }, 'sum')
+            else:
+                g.ndata['feat'] = feats
+            g.update_all(self.msg_fn, self.reduce_fn)
             return g.dstdata.pop('h')
 
 
@@ -178,16 +192,16 @@ class ResnetBottleneckBlock(nn.Module):
         # conv_g -> homograph, pool_g -> heterograph
         with g.local_scope():
             if 'strided' in self.block_name:
-                g.srcdata['feat'] = feats
+                g.srcdata['feat'] = feats  # [n_src_nodes, in_dim]
                 g.multi_update_all({
                     'to': (fn.copy_u('feat', 'm'), fn.mean('m', 'feat'))
                 }, 'sum')
-                shortcut = g.dstdata['feat']
+                shortcut = g.dstdata['feat']  # [n_dst_nodes, in_dim]
             else:
                 shortcut = feats
-
+            
             x = self.down_scaling(feats)
-            x = self.kpconv(g, x)
+            x = self.kpconv(g, x, pool='strided' in self.block_name)
             x = self.leaky_relu(self.bn(x))
             x = self.up_scaling(x)
 

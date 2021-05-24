@@ -16,12 +16,13 @@ def train(model, device, data_loader, opt, loss_fn, i):
         batch_gs = [g.to(device) for g in gs]
         batch_feats = feats.to(device)
         labels = labels.to(device)
+        torch.cuda.empty_cache()
         logits = model(batch_gs, batch_feats)
         loss = loss_fn(logits, labels.view(-1))
         logger.info(f'Epoch {i} | Step Loss: {loss.item():.4f}')
         train_loss.append(loss.item())
-
         opt.zero_grad()
+        torch.cuda.empty_cache()
         loss.backward()
         opt.step()
     
@@ -100,6 +101,8 @@ if __name__ == '__main__':
                     'resnetb',
                     'resnetb_strided',
                     'resnetb',
+                    'resnetb',
+                    'resnetb_strided',
                     'resnetb',
                     'global_average'])
     # cuda
