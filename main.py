@@ -90,7 +90,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='KPConv')
     parser.add_argument('--data-type', type=str, default='small', choices=['small', 'large'])
     parser.add_argument('--in-features-dim', type=int, default=3)
-    parser.add_argument('--first-features-dim', type=int, default=64)
+    parser.add_argument('--first-features-dim', type=int, default=32)
     parser.add_argument('--first-subsampling-dl', type=float, default=0.02)
     parser.add_argument('--num-kernel-points', type=int, default=15)
     parser.add_argument('--KP-extent', type=float, default=1.2)

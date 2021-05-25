@@ -48,18 +48,18 @@ class KPConv(nn.Module):
     def msg_fn(self, edge):
         y = edge.src.pop('pos') - edge.dst.pop('pos')  # centerize every neighborhood
         y = y.unsqueeze(1) - self.kernel_points  # [n_edges, K, p_dim]
-        h = self.relu(1 - torch.sqrt(torch.sum(y ** 2, dim=-1)) / self.KP_extent)  # [n_edges, K]
-        h = h.unsqueeze(-1).unsqueeze(-1)  # [n_edges, K, 1, 1]
-        m = torch.sum(h * self.weights, dim=1)  # [n_edges, K, in_dim, out_dim] -> [n_edges, in_dim, out_dim]
-        return {'m': m}
+        m = self.relu(1 - torch.sqrt(torch.sum(y ** 2, dim=-1)) / self.KP_extent)  # [n_edges, K]
+
+        return {'m': m, 'f': edge.src['feat']}
     
     def reduce_fn(self, node):
-        # import pdb;pdb.set_trace()
-        f = node.data['feat'].unsqueeze(1).unsqueeze(1)  # [n_nodes, 1, 1, in_dim]
-        try:
-            return {'h': (f @ node.mailbox['m']).mean(1).squeeze(1)}
-        except RuntimeError:
-            import pdb;pdb.set_trace()
+        msg = torch.transpose(node.mailbox['m'], 1, 2)  # [n_nodes, n_messages, K] -> [n_nodes, K, n_messages]
+        f = node.mailbox['f']  # [n_nodes, n_messages, in_dim]
+        weighted_f = torch.matmul(msg, f)  # [n_nodes, K, in_dim]
+        weighted_f = weighted_f.permute(1, 0, 2)  # [K, n_nodes, in_dim]
+        kernel_outputs = torch.matmul(weighted_f, self.weights)  # [K, n_nodes, out_dim]
+
+        return torch.sum(kernel_outputs, dim=0)  # [n_nodes, out_dim]
 
     def forward(self, g, feats, pool=False):
         with g.local_scope():
@@ -71,7 +71,9 @@ class KPConv(nn.Module):
                 }, 'sum')
             else:
                 g.ndata['feat'] = feats
+            
             g.update_all(self.msg_fn, self.reduce_fn)
+
             return g.dstdata.pop('h')
 
 
