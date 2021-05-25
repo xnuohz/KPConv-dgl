@@ -59,7 +59,7 @@ class KPConv(nn.Module):
         weighted_f = weighted_f.permute(1, 0, 2)  # [K, n_nodes, in_dim]
         kernel_outputs = torch.matmul(weighted_f, self.weights)  # [K, n_nodes, out_dim]
 
-        return torch.sum(kernel_outputs, dim=0)  # [n_nodes, out_dim]
+        return {'h': torch.sum(kernel_outputs, dim=0)}  # [n_nodes, out_dim]
 
     def forward(self, g, feats, pool=False):
         with g.local_scope():

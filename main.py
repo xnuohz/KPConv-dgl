@@ -98,13 +98,20 @@ if __name__ == '__main__':
     parser.add_argument('--p-dim', type=int, default=3)
     parser.add_argument('--bn-momentum', type=float, default=0.05)
     parser.add_argument('--architecture', type=list, default=['simple',
-                    'resnetb',
-                    'resnetb_strided',
-                    'resnetb',
-                    'resnetb',
-                    'resnetb_strided',
-                    'resnetb',
-                    'global_average'])
+                                                              'resnetb',
+                                                              'resnetb_strided',
+                                                              'resnetb',
+                                                              'resnetb',
+                                                              'resnetb_strided',
+                                                              'resnetb',
+                                                              'resnetb',
+                                                              'resnetb_strided',
+                                                              'resnetb',
+                                                              'resnetb',
+                                                              'resnetb_strided',
+                                                              'resnetb',
+                                                              'resnetb',
+                                                              'global_average'])
     # cuda
     parser.add_argument('--gpu', type=int, default=0)
     # training
