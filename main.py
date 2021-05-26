@@ -54,7 +54,7 @@ def main():
     # load dataset
     train_dataset = ModelNet40Dataset(args, 'data/ModelNet40', split='train')
     test_dataset = ModelNet40Dataset(args, 'data/ModelNet40', split='test')
-    return
+    
     train_loader = DataLoader(train_dataset,
                               batch_size=args.batch_size,
                               collate_fn=ModelNet40Collate,
@@ -75,12 +75,18 @@ def main():
     logger.info('---------- Training ----------')
     for i in range(args.epochs):
         train_loss = train(model, device, train_loader, opt, loss_fn, i)
-        train_acc = test(model, device, train_loader)
-        logger.info(f'Epoch {i} | Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f}')
+        if i % args.interval == 0:
+            train_acc = test(model, device, train_loader)
+            logger.info(f'Epoch {i} | Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f}')
+        else:
+            logger.info(f'Epoch {i} | Train Loss: {train_loss:.4f}')
     
     logger.info('---------- Testing ----------')
     test_acc = test(model, device, test_loader)
     logger.info(f'Test Acc: {test_acc:.4f}')
+
+    model_path = f'models/KPCNN-{args.first_subsampling_dl}-{args.data_type}-arch{len(args.architecture)}.pt'
+    torch.save(model.state_dict(), model_path)
 
 
 if __name__ == '__main__':
@@ -118,6 +124,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=1)
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--batch-size', type=int, default=80)
+    parser.add_argument('--interval', type=int, default=40)
     
     args = parser.parse_args()
     logger.info(args)
