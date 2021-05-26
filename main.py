@@ -54,7 +54,7 @@ def main():
     # load dataset
     train_dataset = ModelNet40Dataset(args, 'data/ModelNet40', split='train')
     test_dataset = ModelNet40Dataset(args, 'data/ModelNet40', split='test')
-    
+    return
     train_loader = DataLoader(train_dataset,
                               batch_size=args.batch_size,
                               collate_fn=ModelNet40Collate,
@@ -115,9 +115,9 @@ if __name__ == '__main__':
     # cuda
     parser.add_argument('--gpu', type=int, default=0)
     # training
-    parser.add_argument('--epochs', type=int, default=5)
+    parser.add_argument('--epochs', type=int, default=1)
     parser.add_argument('--lr', type=float, default=0.01)
-    parser.add_argument('--batch-size', type=int, default=1)
+    parser.add_argument('--batch-size', type=int, default=80)
     
     args = parser.parse_args()
     logger.info(args)

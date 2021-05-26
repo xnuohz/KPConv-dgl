@@ -10,12 +10,13 @@ from utils import grid_subsampling, batch_neighbors, batch_grid_subsampling
 
 
 class ModelNet40Dataset(Dataset):
-    def __init__(self, args, root, split='train'):
+    def __init__(self, args, root, split='train', redo=False):
         assert split in ['train', 'test']
 
         self.config = args
         self.root = root
         self.split = split
+        self.redo = redo
         self.type = 10 if args.data_type == 'small' else 40
         catfile = os.path.join(root, f'modelnet{self.type}_shape_names.txt')
         cat = [l.rstrip() for l in open(catfile)]
@@ -25,9 +26,9 @@ class ModelNet40Dataset(Dataset):
         points, self.feats, lengths, self.labels = self.load_subsampled_clouds()
         lengths = torch.cumsum(torch.cat([torch.LongTensor([0]), lengths]), dim=0)
         # for debug
-        points = points[:lengths[3], :]
-        labels = points[:lengths[3], :]
-        lengths = lengths[:4]
+        # points = points[:lengths[3], :]
+        # labels = points[:lengths[3], :]
+        # lengths = lengths[:4]
         
         self.points, self.neighbors_src, self.neighbors_dst, self.pools_src, self.pools_dst, \
             self.stacked_lengths = self.classification_inputs(points, self.labels, lengths)
@@ -37,8 +38,8 @@ class ModelNet40Dataset(Dataset):
         return self.labels.max().item() + 1
 
     def __len__(self):
-        # return len(self.labels)
-        return 3
+        return len(self.labels)
+        # return 3
 
     def __getitem__(self, idx):
         feats = self.feats[self.stacked_lengths[0][idx]:self.stacked_lengths[0][idx + 1], :]
@@ -135,8 +136,8 @@ class ModelNet40Dataset(Dataset):
         logger.info(f'Preprocessing {self.split} points subsampled in classification format')
         filename = f'{self.root}/{self.split}_{self.config.first_subsampling_dl}_classification_{self.type}.pkl'
         
-        # if os.path.exists(filename):
-        #     return torch.load(open(filename, 'rb'))
+        if not self.redo and os.path.exists(filename):
+            return torch.load(open(filename, 'rb'))
 
         # Starting radius of convolutions
         r_normal = self.config.first_subsampling_dl * self.config.conv_radius
@@ -225,12 +226,12 @@ class ModelNet40Dataset(Dataset):
         ###############
 
         # Save for later use
-        # torch.save((input_points,
-        #             input_neighbors_src,
-        #             input_neighbors_dst,
-        #             input_pools_src,
-        #             input_pools_dst,
-        #             input_stack_lengths), filename)
+        torch.save((input_points,
+                    input_neighbors_src,
+                    input_neighbors_dst,
+                    input_pools_src,
+                    input_pools_dst,
+                    input_stack_lengths), filename)
 
         return input_points, input_neighbors_src, input_neighbors_dst, \
             input_pools_src, input_pools_dst, input_stack_lengths
