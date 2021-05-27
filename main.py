@@ -2,6 +2,7 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import time
 from logzero import logger
 from torch.utils.data import DataLoader
 from dataset import ModelNet40Dataset, ModelNet40Collate
@@ -71,10 +72,17 @@ def main():
 
     loss_fn = nn.CrossEntropyLoss()
     opt = optim.Adam(model.parameters(), lr=args.lr)
+    times = []
 
     logger.info('---------- Training ----------')
     for i in range(args.epochs):
+        t1 = time.time()
         train_loss = train(model, device, train_loader, opt, loss_fn, i)
+        t2 = time.time()
+
+        if i >= 5:
+            times.append(t2 - t1)
+
         if i % args.interval == 0:
             train_acc = test(model, device, train_loader)
             logger.info(f'Epoch {i} | Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f}')
@@ -84,6 +92,7 @@ def main():
     logger.info('---------- Testing ----------')
     test_acc = test(model, device, test_loader)
     logger.info(f'Test Acc: {test_acc:.4f}')
+    logger.info(f'Times/epoch: {sum(times) / len(times):.4f}')
 
     model_path = f'models/KPCNN-{args.first_subsampling_dl}-{args.data_type}-arch{len(args.architecture)}.pt'
     torch.save(model.state_dict(), model_path)
