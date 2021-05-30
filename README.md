@@ -50,5 +50,5 @@ python main.py --data-type large --epochs 150
 
 |    Dataset     | ModelNet10 | ModelNet40 |
 | :------------: | :--------: | :--------: |
-| Result(Author) |            |            |
+| Result(Author) |            |   59.87    |
 |  Result(DGL)   |   363.70   |            |
