@@ -52,3 +52,8 @@ python main.py --data-type large --epochs 150
 | :------------: | :--------: | :--------: |
 | Result(Author) |            |   59.87    |
 |  Result(DGL)   |   363.70   |            |
+
+### Issue
+
+- the nodes number of some point clouds are small(like idx=2055 in train data), deeper arch is not supported.
+- idx=2055: 8 nodes in layer 1, 4 nodes in layer 2, 1 node in layer 3

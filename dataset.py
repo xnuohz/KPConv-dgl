@@ -10,13 +10,12 @@ from utils import grid_subsampling, batch_neighbors, batch_grid_subsampling
 
 
 class ModelNet40Dataset(Dataset):
-    def __init__(self, args, root, split='train', redo=False):
+    def __init__(self, args, root, split='train'):
         assert split in ['train', 'test']
 
         self.config = args
         self.root = root
         self.split = split
-        self.redo = redo
         self.type = 10 if args.data_type == 'small' else 40
         catfile = os.path.join(root, f'modelnet{self.type}_shape_names.txt')
         cat = [l.rstrip() for l in open(catfile)]
@@ -133,12 +132,12 @@ class ModelNet40Dataset(Dataset):
                               labels,
                               stacked_lengths):
         
-        logger.info(f'Preprocessing {self.split} points subsampled in classification format')
         filename = f'{self.root}/{self.split}_{self.config.first_subsampling_dl}_classification_{self.type}.pkl'
         
-        if not self.redo and os.path.exists(filename):
+        if not self.config.redo and os.path.exists(filename):
             return torch.load(open(filename, 'rb'))
 
+        logger.info(f'Preprocessing {self.split} points subsampled in classification format')
         # Starting radius of convolutions
         r_normal = self.config.first_subsampling_dl * self.config.conv_radius
 
