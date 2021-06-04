@@ -65,9 +65,9 @@ def batch_neighbors(queries,
     
     stacked_src, stacked_dst = [], []
     
-    for i in range(len(q_batches) - 1):
-        query_cloud = queries[int(q_batches[i]):int(q_batches[i + 1])]  # [N, 3]
-        support_cloud = supports[int(s_batches[i]):int(s_batches[i + 1])]  # [M, 3]
+    for i in range(1, len(q_batches)):
+        query_cloud = queries[int(q_batches[i - 1]):int(q_batches[i])]  # [N, 3]
+        support_cloud = supports[int(s_batches[i - 1]):int(s_batches[i])]  # [M, 3]
         N, M = len(query_cloud), len(support_cloud)
         # get neighbors for each point
         dists = square_distance(query_cloud, support_cloud)  # [N, M]
@@ -185,7 +185,7 @@ def batch_grid_subsampling(stacked_points, stacked_lengths, dl, offset=5):
     stacked_offset_points = stacked_points + stacked_offsets  # [batch, 3]
     pool_points = grid_subsampling(stacked_offset_points, dl)
     # calculate pool batch length
-    tmp_points = torch.cat([pool_points, torch.zeros(1, pool_points.size()[1])], dim=0)
+    tmp_points = torch.cat([pool_points, torch.zeros(1, pool_points.size()[1]).fill_(float('inf'))], dim=0)
     # assume that there exists a gap between each point cloud
     gap = torch.abs(tmp_points[1:, :] - tmp_points[:-1, :]) >= offset - 2
     pool_cumsum_batch = torch.cat([torch.zeros(1), torch.where(gap[:, 0] == True)[0] + 1])
