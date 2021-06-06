@@ -118,6 +118,15 @@ if __name__ == '__main__':
                                                               'resnetb_strided',
                                                               'resnetb',
                                                               'resnetb',
+                                                              'resnetb_strided',
+                                                              'resnetb',
+                                                              'resnetb',
+                                                              'resnetb_strided',
+                                                              'resnetb',
+                                                              'resnetb',
+                                                              'resnetb_strided',
+                                                              'resnetb',
+                                                              'resnetb',
                                                               'global_average'])
     # cuda
     parser.add_argument('--gpu', type=int, default=0)

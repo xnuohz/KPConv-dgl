@@ -75,8 +75,9 @@ def batch_neighbors(queries,
         group_idx[dists > radius ** 2] = M
         # get edges idx
         dst, src = torch.where(group_idx != M)
-        stacked_src.append(src[src != dst])
-        stacked_dst.append(dst[src != dst])
+        # we should include self-loop edge
+        stacked_src.append(src)
+        stacked_dst.append(dst)
     
     return stacked_src, stacked_dst
 
