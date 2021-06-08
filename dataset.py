@@ -24,13 +24,10 @@ class ModelNet40Dataset(Dataset):
         # load point cloud
         points, self.feats, lengths, self.labels = self.load_subsampled_clouds()
         lengths = torch.cumsum(torch.cat([torch.LongTensor([0]), lengths]), dim=0)
-        # for debug
-        # points = points[:lengths[3], :]
-        # labels = points[:lengths[3], :]
-        # lengths = lengths[:4]
         
+        self.error_idx = np.load(f'{self.root}/error_idx.npy')
         self.points, self.neighbors_src, self.neighbors_dst, self.pools_src, self.pools_dst, \
-            self.stacked_lengths = self.classification_inputs(points, self.labels, lengths)
+            self.stacked_lengths = self.classification_inputs(points, lengths)
 
     @property
     def num_classes(self):
@@ -38,9 +35,11 @@ class ModelNet40Dataset(Dataset):
 
     def __len__(self):
         return len(self.labels)
-        # return 3
 
     def __getitem__(self, idx):
+        if idx in self.error_idx:
+            idx = 0
+
         feats = self.feats[self.stacked_lengths[0][idx]:self.stacked_lengths[0][idx + 1], :]
         label = self.labels[idx]
         gs = []
@@ -129,7 +128,6 @@ class ModelNet40Dataset(Dataset):
 
     def classification_inputs(self,
                               stacked_points,
-                              labels,
                               stacked_lengths):
         
         filename = f'{self.root}/{self.split}_{self.config.first_subsampling_dl}_classification_{self.type}.pkl'

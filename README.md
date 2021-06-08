@@ -55,5 +55,6 @@ python main.py --data-type large --epochs 150
 
 ### Issue
 
-- the nodes number of some point clouds are small(like idx=2055 in train data), deeper arch is not supported.
-- idx=2055: 8 nodes in layer 1, 4 nodes in layer 2, 1 node in layer 3
+- 991 point clouds in modelnet40 train set will cause dgl._ffi.base.DGLError: Expect number of features to match number of nodes (len(u))
+- means nodes and positions do not match in kpconv nn graph or pool bipartite graph
+- error idxs are saved into error_idx.npy

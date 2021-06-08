@@ -62,9 +62,9 @@ def main():
                               shuffle=True)
     
     test_loader = DataLoader(test_dataset,
-                              batch_size=args.batch_size,                
-                              collate_fn=ModelNet40Collate,
-                              shuffle=False)
+                             batch_size=args.batch_size,
+                             collate_fn=ModelNet40Collate,
+                             shuffle=False)
     
     # load model
     args.num_classes = train_dataset.num_classes
@@ -92,7 +92,8 @@ def main():
     logger.info('---------- Testing ----------')
     test_acc = test(model, device, test_loader)
     logger.info(f'Test Acc: {test_acc:.4f}')
-    logger.info(f'Times/epoch: {sum(times) / len(times):.4f}')
+    if args.epochs >= 5:
+        logger.info(f'Times/epoch: {sum(times) / len(times):.4f}')
 
     model_path = f'models/KPCNN-{args.first_subsampling_dl}-{args.data_type}-arch{len(args.architecture)}.pt'
     torch.save(model.state_dict(), model_path)
