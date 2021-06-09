@@ -72,6 +72,7 @@ def main():
 
     loss_fn = nn.CrossEntropyLoss()
     opt = optim.Adam(model.parameters(), lr=args.lr)
+    scheduler = optim.lr_scheduler.StepLR(opt, args.step_size, gamma=args.gamma)
     times = []
 
     logger.info('---------- Training ----------')
@@ -88,7 +89,9 @@ def main():
             logger.info(f'Epoch {i} | Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f}')
         else:
             logger.info(f'Epoch {i} | Train Loss: {train_loss:.4f}')
-    
+        
+        scheduler.step()
+
     logger.info('---------- Testing ----------')
     test_acc = test(model, device, test_loader)
     logger.info(f'Test Acc: {test_acc:.4f}')
@@ -136,6 +139,8 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--batch-size', type=int, default=80)
     parser.add_argument('--interval', type=int, default=40)
+    parser.add_argument('--step-size', type=int, default=15)
+    parser.add_argument('--gamma', type=float, default=0.01)
     
     args = parser.parse_args()
     logger.info(args)
