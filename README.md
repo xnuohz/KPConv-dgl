@@ -43,14 +43,14 @@ python main.py --data-type large --epochs 60
 |    Dataset     | ModelNet10 | ModelNet40 |
 | :------------: | :--------: | :--------: |
 | Result(Paper)  |     -      |    92.9    |
-| Result(Author) |            |    91.6    |
+| Result(Author) |   92.60    |    91.6    |
 |  Result(DGL)   |   90.09    |    86.1    |
 
 ### Speed
 
 |    Dataset     | ModelNet10 | ModelNet40 |
 | :------------: | :--------: | :--------: |
-| Result(Author) |            |   59.87    |
+| Result(Author) |   46.38    |   59.87    |
 |  Result(DGL)   |   363.70   |   908.24   |
 
 ### Issue
