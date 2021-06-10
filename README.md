@@ -32,7 +32,7 @@ ModelNet40 for classification. Dataset summary:
 Train a model which follows the original hyperparameters
 ```bash
 # ModelNet10
-python main.py --epochs 150
+python main.py --epochs 100
 
 # ModelNet40
 python main.py --data-type large --epochs 60
