@@ -1,6 +1,7 @@
 import torch
 import os
 import numpy as np
+import dgl
 from collections import defaultdict
 import matplotlib.pyplot as plt
 
@@ -57,13 +58,11 @@ def batch_neighbors(queries,
 
     Return
     -----------
-    stacked_src: list
-        [[N1,], [N2,], ...]
-    stacked_dst: list
-        [[N1,], [N2,], ...]
+    stacked_graphs: list
+        [dgl.DGLGraph, ...]
     """
     
-    stacked_src, stacked_dst = [], []
+    stacked_graphs = []
     
     for i in range(1, len(q_batches)):
         query_cloud = queries[int(q_batches[i - 1]):int(q_batches[i])]  # [N, 3]
@@ -75,11 +74,22 @@ def batch_neighbors(queries,
         group_idx[dists > radius ** 2] = M
         # get edges idx
         dst, src = torch.where(group_idx != M)
-        # we should include self-loop edge
-        stacked_src.append(src)
-        stacked_dst.append(dst)
+        # we should keep self-loop edge
+        if N == M:
+            # kpconv nn graph
+            g = dgl.graph((src, dst))
+            g.ndata['pos'] = query_cloud
+        else:
+            # pool bipartite graph
+            # only 1 relationship in this heter graph
+            g = dgl.heterograph({
+                ('pc_1', 'to', 'pc_2'): (src, dst)
+            })
+            g.srcdata['pos'] = support_cloud
+            g.dstdata['pos'] = query_cloud
+        stacked_graphs.append(g)
     
-    return stacked_src, stacked_dst
+    return stacked_graphs
 
 
 def get_bbox(points):

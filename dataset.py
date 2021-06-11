@@ -26,8 +26,7 @@ class ModelNet40Dataset(Dataset):
         lengths = torch.cumsum(torch.cat([torch.LongTensor([0]), lengths]), dim=0)
         
         self.error_idx = np.load(f'{self.root}/error_idx.npy')
-        self.points, self.neighbors_src, self.neighbors_dst, self.pools_src, self.pools_dst, \
-            self.stacked_lengths = self.classification_inputs(points, lengths)
+        self.points, self.stacked_lengths, self.conv_gs, self.pool_gs = self.classification_inputs(points, lengths)
 
     @property
     def num_classes(self):
@@ -37,7 +36,7 @@ class ModelNet40Dataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        if idx in self.error_idx:
+        if idx in self.error_idx and self.config.data_type == 'large':
             idx = 0
 
         feats = self.feats[self.stacked_lengths[0][idx]:self.stacked_lengths[0][idx + 1], :]
@@ -45,23 +44,9 @@ class ModelNet40Dataset(Dataset):
         gs = []
         
         for i, lengths in enumerate(self.stacked_lengths):
-            pos = self.points[i][lengths[idx]:lengths[idx + 1], :]
-            conv_g = dgl.graph((self.neighbors_src[i][idx], self.neighbors_dst[i][idx]))
-            conv_g.ndata['pos'] = pos
-            gs.append(conv_g)
+            gs.append(self.conv_gs[i][idx])
             if i != len(self.stacked_lengths) - 1:
-                # only 1 relationship in this heter graph
-                pool_g = dgl.heterograph({
-                    ('pc_1', 'to', 'pc_2'): (self.pools_src[i][idx], self.pools_dst[i][idx])
-                })
-                pool_g.srcdata['pos'] = pos
-
-                # update dst node pos
-                pool_g.multi_update_all({
-                    'to': (fn.copy_u('pos', 'm'), fn.mean('m', 'pos'))
-                }, 'sum')
-
-                gs.append(pool_g)
+                gs.append(self.pool_gs[i][idx])
 
         return gs, feats, label
     
@@ -126,10 +111,7 @@ class ModelNet40Dataset(Dataset):
 
         return input_points, input_feats, lengths, input_labels
 
-    def classification_inputs(self,
-                              stacked_points,
-                              stacked_lengths):
-        
+    def classification_inputs(self, stacked_points, stacked_lengths):
         filename = f'{self.root}/{self.split}_{self.config.first_subsampling_dl}_classification_{self.type}.pkl'
         
         if not self.config.redo and os.path.exists(filename):
@@ -144,10 +126,10 @@ class ModelNet40Dataset(Dataset):
 
         # Lists of inputs
         input_points = []
-        input_neighbors_src = []
-        input_neighbors_dst = []
-        input_pools_src = []
-        input_pools_dst = []
+        # input_conv_gs: [dgl.DGLGraph], [[g1_layer1, ..., gn_layer1], [g1_layer2, ..., gn_layer2], ...]
+        input_conv_gs = []
+        # input_pool_gs: [dgl.DGLGraph], [[g1_layer1, ..., gn_layer1], [g1_layer2, ..., gn_layer2], ...]
+        input_pool_gs = []
         input_stack_lengths = []
 
         ######################
@@ -168,18 +150,12 @@ class ModelNet40Dataset(Dataset):
             # *****************************
             # layer_blocks must not be []
             # Convolutions are done in this layer, compute the neighbors with the good radius
-            # conv_src: [torch.Tensor], [[g1_src1, g1_src2, ...], [g2_src1, g2_src2, ...], ...]
-            # conv_dst: [torch.Tensor], [[g1_dst1, g1_dst2, ...], [g2_dst1, g2_dst2, ...], ...]
-            conv_src, conv_dst = batch_neighbors(stacked_points,
-                                                 stacked_points,
-                                                 stacked_lengths,
-                                                 stacked_lengths,
-                                                 r_normal)
+            conv_gs = batch_neighbors(stacked_points, stacked_points, stacked_lengths, stacked_lengths, r_normal)
+
             # Updating input lists
             input_points.append(stacked_points)
             input_stack_lengths.append(stacked_lengths)
-            input_neighbors_src.append(conv_src)
-            input_neighbors_dst.append(conv_dst)
+            input_conv_gs.append(conv_gs)
 
             # Stop when meeting a global pooling
             if 'global' in block:
@@ -200,15 +176,10 @@ class ModelNet40Dataset(Dataset):
             # Subsample indices
             # pool_src: [torch.Tensor], [[g1_src1, g1_src2, ...], [g2_src1, g2_src2, ...], ...]
             # pool_dst: [torch.Tensor], [[pool_g1_dst1, pool_g1_dst2, ...], [pool_g2_dst1, pool_g2_dst2, ...], ...]
-            pool_src, pool_dst = batch_neighbors(pool_p,
-                                                 stacked_points,
-                                                 pool_b,
-                                                 stacked_lengths,
-                                                 r_normal)
+            pool_gs = batch_neighbors(pool_p, stacked_points, pool_b, stacked_lengths, r_normal)
 
             # Updating input lists
-            input_pools_src.append(pool_src)
-            input_pools_dst.append(pool_dst)
+            input_pool_gs.append(pool_gs)
 
             # New points for next layer
             stacked_points = pool_p
@@ -224,14 +195,11 @@ class ModelNet40Dataset(Dataset):
 
         # Save for later use
         torch.save((input_points,
-                    input_neighbors_src,
-                    input_neighbors_dst,
-                    input_pools_src,
-                    input_pools_dst,
-                    input_stack_lengths), filename)
+                    input_stack_lengths,
+                    input_conv_gs,
+                    input_pool_gs), filename)
 
-        return input_points, input_neighbors_src, input_neighbors_dst, \
-            input_pools_src, input_pools_dst, input_stack_lengths
+        return input_points, input_stack_lengths, input_conv_gs, input_pool_gs
 
 
 def ModelNet40Collate(batch_data):
