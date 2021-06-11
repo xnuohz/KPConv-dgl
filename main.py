@@ -59,12 +59,14 @@ def main():
     train_loader = DataLoader(train_dataset,
                               batch_size=args.batch_size,
                               collate_fn=ModelNet40Collate,
-                              shuffle=True)
+                              shuffle=True,
+                              num_workers=args.num_workers)
     
     test_loader = DataLoader(test_dataset,
                              batch_size=args.batch_size,
                              collate_fn=ModelNet40Collate,
-                             shuffle=False)
+                             shuffle=False,
+                             num_workers=args.num_workers)
     
     # load model
     args.num_classes = train_dataset.num_classes
@@ -141,6 +143,7 @@ if __name__ == '__main__':
     parser.add_argument('--interval', type=int, default=40)
     parser.add_argument('--step-size', type=int, default=15)
     parser.add_argument('--gamma', type=float, default=0.01)
+    parser.add_argument('--num-workers', type=int, default=18)
     
     args = parser.parse_args()
     logger.info(args)
