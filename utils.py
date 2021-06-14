@@ -83,10 +83,13 @@ def batch_neighbors(queries,
             # pool bipartite graph
             # only 1 relationship in this heter graph
             g = dgl.heterograph({
-                ('pc_1', 'to', 'pc_2'): (src, dst)
-            })
-            g.srcdata['pos'] = support_cloud
-            g.dstdata['pos'] = query_cloud
+                    ('pc_1', 'to', 'pc_2'): (src, dst)
+                })
+            try:
+                g.srcdata['pos'] = support_cloud
+                g.dstdata['pos'] = query_cloud
+            except Exception:
+                pass
         stacked_graphs.append(g)
     
     return stacked_graphs
