@@ -25,7 +25,6 @@ class ModelNet40Dataset(Dataset):
         points, self.feats, lengths, self.labels = self.load_subsampled_clouds()
         lengths = torch.cumsum(torch.cat([torch.LongTensor([0]), lengths]), dim=0)
         
-        self.error_idx = np.load(f'{self.root}/error_idx.npy')
         self.points, self.stacked_lengths, self.conv_gs, self.pool_gs = self.classification_inputs(points, lengths)
 
     @property
@@ -36,9 +35,6 @@ class ModelNet40Dataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        if idx in self.error_idx and self.config.data_type == 'large':
-            idx = 0
-
         feats = self.feats[self.stacked_lengths[0][idx]:self.stacked_lengths[0][idx + 1], :]
         label = self.labels[idx]
         gs = []
@@ -46,7 +42,10 @@ class ModelNet40Dataset(Dataset):
         for i, lengths in enumerate(self.stacked_lengths):
             gs.append(self.conv_gs[i][idx])
             if i != len(self.stacked_lengths) - 1:
-                gs.append(self.pool_gs[i][idx])
+                pool_g = self.pool_gs[i][idx]
+                if 'pos' not in pool_g.srcdata or 'pos' not in pool_g.dstdata:
+                    return self.__getitem__(0)
+                gs.append(pool_g)
 
         return gs, feats, label
     
